@@ -6,6 +6,7 @@
 #include "common/Request.h"
 #include "common/Config.h"
 #include "common/ThreadPool.h"
+#include "common/tq.h"
 #include "core/BlockRequest.h"
 #include "core/BlockGuard.h"
 #include "core/policy/Policy.h"
@@ -25,7 +26,7 @@ namespace core {
     void aio_read (char* data, uint64_t offset, uint64_t length, void* c);
     void aio_write (const char* data, uint64_t offset, uint64_t length, void* c);
   private:
-    ThreadPool *hdcs_op_threads;
+    TWorkQueue *hdcs_op_threads;
     std::thread *main_thread;
     bool go;
     Config *config;
