@@ -10,11 +10,12 @@ CCFLAGS=${OPT} -fPIC -g -D__STDC_FORMAT_MACROS -DLIBRBC_VERSION='"${LIBRBC_VERSI
 PLATFORM_LDFLAGS=-lboost_thread -lboost_system -lpthread -lrbd -lrados
 INCS=-I./
 
-DIST_LIB = libhdcs.so
+DIST_LIB = lib/libhdcs.so
+TEST_TOOL = hdcs_test_tool
 #POLICY = CACHE
 POLICY = TIER
 .PHONY : all
-all: $(DIST_LIB)
+all: $(DIST_LIB) $(TEST_TOOL)
 
 %.o : %.cpp
 	${CXX} -c ${CXXFLAGS} ${INCS} $< -o $@
@@ -37,16 +38,22 @@ TIER_CORE_OBJECTS := HDCSCore_tier.oo
 
 ifeq ($(POLICY),CACHE)
 $(DIST_LIB): core/policy/CachePolicy.o $(COMMON_OBJECTS) $(RBD_OBJECTS) $(CACHE_CORE_OBJECTS)
+	mkdir -p lib
 	${CXX} ${CXXFLAGS} ${INCS} libhdcs.c -shared -o $@ $^ ${PLATFORM_LDFLAGS}
 else
 $(DIST_LIB): core/policy/TierPolicy.o $(COMMON_OBJECTS) $(RBD_OBJECTS) $(TIER_CORE_OBJECTS)
+	mkdir -p lib
 	${CXX} ${CXXFLAGS} ${INCS} libhdcs.c -shared -o $@ $^ ${PLATFORM_LDFLAGS}
 endif
+
+$(TEST_TOOL):
+	${CXX} ${CXXFLAGS} ${INCS} test.c -o $@ $^ -Llib -lhdcs
+
 clean:
-	rm -rf common/*.o core/*.o store/SimpleStore/*.o store/RBD/*.o core/policy/*.o libhdcs.so
+	rm -rf common/*.o core/*.o store/SimpleStore/*.o store/RBD/*.o core/policy/*.o lib/libhdcs.so hdcs_test_tool
 	rm -rf /usr/local/include/hdcs
 	rm -rf /usr/local/lib/libhdcs.so
 
 install:
 	cp -r include/ /usr/local/include/hdcs
-	cp libhdcs.so /usr/local/lib/
+	cp lib/libhdcs.so /usr/local/lib/
