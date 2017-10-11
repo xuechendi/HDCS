@@ -17,7 +17,7 @@ namespace core {
   class HDCSCore {
   public:
     WorkQueue<void*> request_queue;
-    HDCSCore();
+    HDCSCore(std::string name);
     ~HDCSCore();
     void close();
     void promote_all();

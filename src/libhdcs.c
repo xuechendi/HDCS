@@ -25,8 +25,8 @@ ssize_t hdcs_aio_get_return_value(hdcs_completion_t c) {
   return comp->get_return_value();
 }
 
-int hdcs_open(hdcs_ioctx_t *io) {
-  *io = (hdcs_ioctx_t)new hdcs::core::HDCSCore();
+int hdcs_open(hdcs_ioctx_t *io, char* name) {
+  *io = (hdcs_ioctx_t)new hdcs::core::HDCSCore(name);
   return 0;
 }
 
