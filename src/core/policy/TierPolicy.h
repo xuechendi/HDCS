@@ -15,11 +15,6 @@ namespace hdcs {
 
 namespace core {
 
-struct Entry {
-  Entry () : status(UNPROMOTED) {}
-  store::BLOCK_STATUS_TYPE status;
-};
-
 typedef std::vector<Entry> Entries;
 class TierPolicy : public Policy {
 public:

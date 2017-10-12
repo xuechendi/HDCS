@@ -4,6 +4,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <iostream>
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
@@ -26,6 +27,7 @@ public:
         {"rbd_volume_name","volume_1"},
         {"cache_dir","/tmp/"},
         {"cache_mode","write_back"},
+        {"policy_mode","tier"},
         {"total_size","10737418240"},
         {"cache_total_size","10737418240"},
         {"cache_ratio_health","0.85"},
