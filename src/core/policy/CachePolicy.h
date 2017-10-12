@@ -20,14 +20,6 @@ typedef uint8_t CACHE_MODE_TYPE;
 #define CACHE_MODE_WRITE_BACK 0XF0
 #define CACHE_MODE_READ_ONLY 0XF1
 
-struct Entry {
-  Entry (uint32_t entry_id) : entry_id(entry_id), status(UNPROMOTED), timeout_comp(nullptr) {
-  }
-  const uint32_t entry_id;
-  store::BLOCK_STATUS_TYPE status;
-  AioCompletion* timeout_comp;
-};  
-
 typedef std::vector<Entry> Entries;
 class CachePolicy : public Policy {
 public:

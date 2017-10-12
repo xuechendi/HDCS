@@ -105,7 +105,7 @@ BlockOp* TierPolicy::map(BlockRequest &&block_request, BlockOp** block_op_end) {
           block_op = new WriteBlockToCache(block_id, block_buffer, data_store,
                                            block, block_request_ptr, block_op); 
           block_op = new WriteToBuffer(block_buffer, block, block_request_ptr, block_op);
-          block_op = new ReadBlockFromCache(block_id, block_request_ptr->data_ptr,
+          block_op = new ReadBlockFromCache(block_id, block_buffer,
                                             data_store, block, block_request_ptr, block_op); 
         } else {
           // full block write
@@ -170,7 +170,6 @@ void TierPolicy::flush_all() {
         flush_all_cond.notify_all();
       }
       if ( last_batch && flush_all_blocks_count == 0) {
-        log_err("flush_all completed");
         flush_all_cond.notify_all();
       }
     });
@@ -206,7 +205,6 @@ void TierPolicy::promote_all() {
         flush_all_cond.notify_all();
       }
       if ( last_batch && flush_all_blocks_count == 0) {
-        log_err("prmote_all completed");
         flush_all_cond.notify_all();
       }
     });

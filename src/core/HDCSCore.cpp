@@ -39,23 +39,27 @@ HDCSCore::HDCSCore(std::string name) {
 
   block_guard = new BlockGuard(total_size, block_size);
   BlockMap* block_ptr_map = block_guard->get_block_map();
+
+  if (cache_policy_mode) {
 #if defined(CACHE_POLICY)
-  uint64_t cache_size = stoull(config->configValues["cache_total_size"]);
-  float cache_ratio_health = stof(config->configValues["cache_ratio_health"]);
-  uint64_t timeout_nanosecond = stoull(config->configValues["cache_dirty_timeout_nanoseconds"]);
-  CACHE_MODE_TYPE cache_mode = config->configValues["cache_mode"].compare(std::string("readonly")) == 0 ? CACHE_MODE_READ_ONLY : CACHE_MODE_WRITE_BACK;
-  policy = new CachePolicy(total_size, cache_size, block_size, block_ptr_map,
-                    new store::SimpleBlockStore(path, total_size, cache_size, block_size),
-                    new store::RBDImageStore(pool_name, volume_name, block_size),
-                    cache_ratio_health, &request_queue,
-                    timeout_nanosecond, cache_mode, hdcs_thread_max);
+    uint64_t cache_size = stoull(config->configValues["cache_total_size"]);
+    float cache_ratio_health = stof(config->configValues["cache_ratio_health"]);
+    uint64_t timeout_nanosecond = stoull(config->configValues["cache_dirty_timeout_nanoseconds"]);
+    CACHE_MODE_TYPE cache_mode = config->configValues["cache_mode"].compare(std::string("readonly")) == 0 ? CACHE_MODE_READ_ONLY : CACHE_MODE_WRITE_BACK;
+    policy = new CachePolicy(total_size, cache_size, block_size, block_ptr_map,
+                      new store::SimpleBlockStore(path, total_size, cache_size, block_size),
+                      new store::RBDImageStore(pool_name, volume_name, block_size),
+                      cache_ratio_health, &request_queue,
+                      timeout_nanosecond, cache_mode, hdcs_thread_max);
 #endif
+  } else {
 #if defined(TIER_POLICY)
-  policy = new TierPolicy(total_size, block_size, block_ptr_map,
+    policy = new TierPolicy(total_size, block_size, block_ptr_map,
                     new store::SimpleBlockStore(path, total_size, total_size, block_size),
                     new store::RBDImageStore(pool_name, volume_name, block_size),
                     &request_queue, hdcs_thread_max);
 #endif
+  }
 
   go = true;
   main_thread = new std::thread(std::bind(&HDCSCore::process, this));
