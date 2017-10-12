@@ -3,6 +3,7 @@
 #include "core/HDCSCore.h"
 #include "common/Request.h"
 #include "common/C_AioRequestCompletion.h"
+#include "replication/client.h"
 
 void hdcs_aio_release(hdcs_completion_t c){
   hdcs::AioCompletion *comp = (hdcs::C_AioRequestCompletion*) c;
@@ -24,15 +25,27 @@ ssize_t hdcs_aio_get_return_value(hdcs_completion_t c) {
   hdcs::AioCompletion *comp = (hdcs::C_AioRequestCompletion*) c;
   return comp->get_return_value();
 }
-
-int hdcs_open(hdcs_ioctx_t *io, char* name) {
-  *io = (hdcs_ioctx_t)new hdcs::core::HDCSCore(name);
+/*
+int hdcs_open(hdcs_ioctx_t *io) {
+  *io = (hdcs_ioctx_t)new hdcs::core::HDCSCore();
   return 0;
 }
-
+*/
+int hdcs_open(hdcs_ioctx_t *io, int thread_count, char const* host, char const* port, uint64_t block_size, size_t session_count) {
+  *io = (hdcs_ioctx_t)new client(thread_count, host, port, block_size, session_count);
+  io->start();
+  return 0;
+}
+/*
 int hdcs_close(hdcs_ioctx_t io) {
   ((hdcs::core::HDCSCore*)io)->close();
   delete (hdcs::core::HDCSCore*)io;
+  return 0;
+}
+*/
+
+int hdcs_close(hdcs_ioctx_t io) {
+  delete (client*)io;
   return 0;
 }
 
@@ -41,11 +54,16 @@ int hdcs_aio_read(hdcs_ioctx_t io, char* data, uint64_t offset, uint64_t length,
   ((hdcs::core::HDCSCore*)io)->aio_read(data, offset, length, arg);
   return 0;
 }
-
+/*
 int hdcs_aio_write(hdcs_ioctx_t io, const char* data, uint64_t offset, uint64_t length, hdcs_completion_t c){
   void* arg = (void*)c;
   ((hdcs::core::HDCSCore*)io)->aio_write(data, offset, length, arg);
   return 0;
+}
+*/
+int hdcs_aio_write(hdcs_ioctx_t io, const char* data, uint64_t length, hdcs_completion_t c){
+  void* arg = (void*)c;
+  ((client*)io)->send(data, length, arg);
 }
 
 int hdcs_promote_all(hdcs_ioctx_t io) {
