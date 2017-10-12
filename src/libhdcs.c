@@ -1,7 +1,5 @@
 // Copyright [2017] <Intel>
 #include "include/libhdcs.h"
-#include "core/HDCSCore.h"
-#include "common/Request.h"
 #include "common/C_AioRequestCompletion.h"
 #include "replication/client.h"
 
@@ -31,9 +29,10 @@ int hdcs_open(hdcs_ioctx_t *io) {
   return 0;
 }
 */
-int hdcs_open(hdcs_ioctx_t *io, int thread_count, char const* host, char const* port, uint64_t block_size, size_t session_count) {
-  *io = (hdcs_ioctx_t)new client(thread_count, host, port, block_size, session_count);
-  io->start();
+int hdcs_open(hdcs_ioctx_t *io, char* name) {
+  //*io = (hdcs_ioctx_t)new client(thread_count, host, port, block_size, session_count);
+  *io = (hdcs_ioctx_t)new client(64, "127.0.0.1", "9000", 4096, 64);
+  //*io = (hdcs_ioctx_t)new client(1, "127.0.0.1", "9000", 4096, 1);
   return 0;
 }
 /*
@@ -50,8 +49,9 @@ int hdcs_close(hdcs_ioctx_t io) {
 }
 
 int hdcs_aio_read(hdcs_ioctx_t io, char* data, uint64_t offset, uint64_t length, hdcs_completion_t c){
-  void* arg = (void*)c;
+  /*void* arg = (void*)c;
   ((hdcs::core::HDCSCore*)io)->aio_read(data, offset, length, arg);
+  */
   return 0;
 }
 /*
@@ -61,17 +61,17 @@ int hdcs_aio_write(hdcs_ioctx_t io, const char* data, uint64_t offset, uint64_t 
   return 0;
 }
 */
-int hdcs_aio_write(hdcs_ioctx_t io, const char* data, uint64_t length, hdcs_completion_t c){
+int hdcs_aio_write(hdcs_ioctx_t io, const char* data, uint64_t offset, uint64_t length, hdcs_completion_t c){
   void* arg = (void*)c;
   ((client*)io)->send(data, length, arg);
 }
 
 int hdcs_promote_all(hdcs_ioctx_t io) {
-  ((hdcs::core::HDCSCore*)io)->promote_all();
+  //((hdcs::core::HDCSCore*)io)->promote_all();
   return 0;
 }
 
 int hdcs_flush_all(hdcs_ioctx_t io) {
-  ((hdcs::core::HDCSCore*)io)->flush_all();
+  //((hdcs::core::HDCSCore*)io)->flush_all();
   return 0;
 }

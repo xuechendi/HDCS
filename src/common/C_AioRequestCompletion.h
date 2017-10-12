@@ -22,7 +22,7 @@ public:
     C_AioRequestCompletion( void *cb_arg, callback_t cb ):complete_arg(cb_arg),complete_cb(cb){
         assert(complete_cb != NULL);
         assert(complete_arg != NULL);
-        ret = -1;
+        ret = 0;
         completed = false;
     }
     ~C_AioRequestCompletion(){

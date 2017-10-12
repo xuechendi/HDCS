@@ -37,11 +37,10 @@ public:
     }
 
     void write() {
-        boost::asio::async_write(socket_, boost::asio::buffer(buffer_, block_size_),
+        boost::asio::async_write(socket_, boost::asio::buffer(buffer_, sizeof(void*)),
             [this, self = shared_from_this()](
                 const boost::system::error_code& err, size_t cb) {
             if (!err) {
-                assert(cb == block_size_);
                 read();
             }
         });
@@ -53,6 +52,8 @@ public:
                 const boost::system::error_code& err, size_t cb) {
             if (!err) {
                 assert(cb == block_size_);
+                uint64_t c = (*((uint64_t*)buffer_));
+                //printf("server read: 0x%lx\n", c);
                 write();
             }
         });
@@ -122,7 +123,7 @@ void server_test1(int thread_count, char const* host, char const* port,
 
 int main(int argc, char* argv[]) {
   if (argc != 5) {
-    std::cout << "wrong param" << std::endl;
+    std::cout << "Usage:\n\t" << argv[0] << " ip port threads_num block_size\n" << std::endl;
     return -1;
   }
   server_test1(std::atoi(argv[3]), argv[1], argv[2], std::atoi(argv[4]));

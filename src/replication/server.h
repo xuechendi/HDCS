@@ -37,7 +37,7 @@ public:
     }
 
     void write() {
-        boost::asio::async_write(socket_, boost::asio::buffer(buffer_, block_size_),
+        boost::asio::async_write(socket_, boost::asio::buffer(buffer_, sizeof(void*)),
             [this, self = shared_from_this()](
                 const boost::system::error_code& err, size_t cb) {
             if (!err) {

@@ -11,7 +11,7 @@ PLATFORM_LDFLAGS=-lboost_thread -lboost_system -lpthread -lrbd -lrados
 INCS=-I./
 
 DIST_LIB = lib/libhdcs.so
-TEST_TOOL = hdcs_test_tool
+#TEST_TOOL = hdcs_test_tool
 #POLICY = CACHE
 POLICY = TIER
 .PHONY : all

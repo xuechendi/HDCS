@@ -9,6 +9,7 @@
 #include <thread>
 #include <boost/asio/steady_timer.hpp>
 #include "io_pool.h"
+#include "common/C_AioRequestCompletion.h"
 
 
 
@@ -58,9 +59,7 @@ public:
         : io_service_(ios),
         socket_(ios),
         block_size_(block_size),
-        buffer_(new char[block_size]) {
-        for (size_t i = 0; i < block_size_; ++i)
-            buffer_[i] = static_cast<char>(i % 128);
+        buffer_(new char[sizeof(void*)]) {
     }
 
     ~session() {
@@ -68,14 +67,14 @@ public:
     }
 
     void write(const char* data, uint64_t length, void* arg) {
-        boost::asio::async_write(socket_, boost::asio::buffer(data, length),
+        char* data_buffer = const_cast<char*>(data);
+        uint64_t seq_id = (uint64_t)arg;
+        memcpy(data_buffer, &seq_id, sizeof(uint64_t));
+        //printf("client write, callback: %lX\n", seq_id);
+        boost::asio::async_write(socket_, boost::asio::buffer(data_buffer, length),
             [this](const boost::system::error_code& err, uint64_t cb) {
             if (!err) {
-                assert(cb == length);
-                bytes_written_ += cb;
-                ++count_written_;
                 read();
-                return ?
             } else {
                 if (!want_close_) {
                     //std::cout << "write failed: " << err.message() << "\n";
@@ -86,12 +85,13 @@ public:
     }
 
     void read() {
-        boost::asio::async_read(socket_, boost::asio::buffer(buffer_, block_size_),
+        boost::asio::async_read(socket_, boost::asio::buffer(buffer_, sizeof(void*)),
             [this](const boost::system::error_code& err, uint64_t cb) {
             if (!err) {
-                assert(cb == block_size_);
-                bytes_read_ += cb;
-                ++count_read_;
+                uint64_t seq_id = (*((uint64_t*)buffer_));
+                hdcs::AioCompletion *comp = (hdcs::AioCompletion*)seq_id;
+                //printf("client read, callback: %lX\n", seq_id);
+                comp->complete(0);
             } else {
                 if (!want_close_) {
                     //std::cout << "read failed: " << err.message() << "\n";
@@ -141,7 +141,7 @@ private:
     boost::asio::io_service& io_service_;
     boost::asio::ip::tcp::socket socket_;
     uint64_t block_size_;
-    char* const buffer_;
+    char* buffer_;
     size_t bytes_written_ = 0;
     size_t bytes_read_ = 0;
     size_t count_written_ = 0;
@@ -156,7 +156,7 @@ public:
     client(int thread_count,
         char const* host, char const* port,
         uint64_t block_size, size_t session_count)
-        : thread_count_(thread_count){
+        : thread_count_(thread_count), s_id(0) {
         io_services_.resize(thread_count_);
         io_works_.resize(thread_count_);
         threads_.resize(thread_count_);
@@ -185,6 +185,8 @@ public:
             std::unique_ptr<session> new_session(new session(io_service, block_size));
             sessions_.emplace_back(std::move(new_session));
         }
+
+        start();
     }
 
     ~client() {
@@ -211,15 +213,13 @@ public:
     }
 
     int send(const char* data, uint64_t length, void* arg) {
-        for (auto& session : sessions_) {
-            session->write(data, length, arg);
-        }
+        sessions_[s_id++]->write(data, length, arg);
+        if (s_id >= thread_count_) s_id = 0;
         return 0;
     }
 
-
-
 private:
+    std::atomic<int> s_id;
     int const thread_count_;
     std::vector<std::unique_ptr<boost::asio::io_service>> io_services_;
     std::vector<std::unique_ptr<boost::asio::io_service::work>> io_works_;
