@@ -15,8 +15,8 @@
 
 namespace hdcs {
 namespace core {
-HDCSCore::HDCSCore() {
-  config = new Config("hdcs"); 
+HDCSCore::HDCSCore(std::string name) {
+  config = new Config(name); 
 
   std::string log_path = config->configValues["log_to_file"];
   std::cout << "log_path: " << log_path << std::endl;

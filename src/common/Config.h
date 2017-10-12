@@ -26,7 +26,7 @@ public:
         {"rbd_volume_name","volume_1"},
         {"cache_dir","/tmp/"},
         {"cache_mode","write_back"},
-        {"total_size","4096"},
+        {"total_size","10737418240"},
         {"cache_total_size","10737418240"},
         {"cache_ratio_health","0.85"},
         {"cache_dirty_timeout_nanoseconds", "10000000000"},
