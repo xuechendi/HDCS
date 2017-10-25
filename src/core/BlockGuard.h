@@ -15,17 +15,15 @@ public:
   BlockGuard(uint64_t total_size, uint32_t block_size) : 
          total_size(total_size), block_size(block_size) {
     block_count = total_size / block_size;
-    log_print("Total blocks: %lu", block_count);
+    log_err("Total blocks: %lu", block_count);
     block_map = new Block*[block_count]();
     for (uint64_t i = 0; i < block_count; i++) {
       Block* block = new Block(i, block_size);
-      //block_map.insert(std::make_pair(i, block));
       block_map[i] = block;
     }
   }
 
   ~BlockGuard() {
-    //for (auto &block : block_map) {
     for (uint64_t i = 0; i < block_count; i++) {
       delete block_map[i];
     }

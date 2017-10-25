@@ -118,7 +118,7 @@ public:
   }
   void send() {
     log_print("WriteToBuffer block: %lu", block->block_id);
-    memcpy(block_buffer+block_request->offset, block_buffer, block_request->size);
+    memcpy(block_buffer+block_request->offset, block_request->data_ptr, block_request->size);
     complete(0);
   }
   char* block_buffer;
