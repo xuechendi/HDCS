@@ -8,6 +8,7 @@
 #include "common/Log.h"
 
 namespace hdcs{
+typedef void (*callback_t)(void* comp, void *arg);
 
 class C_AioRequestCompletion : public AioCompletion {
 private:
