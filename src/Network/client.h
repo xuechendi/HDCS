@@ -1,3 +1,5 @@
+#ifndef HDCS_CLIENT_H
+#define HDCS_CLIENT_H
 #include <algorithm>
 #include <iostream>
 #include <list>
@@ -9,22 +11,28 @@
 #include <thread>
 #include <boost/asio/steady_timer.hpp>
 #include "io_pool.h"
-#include "common/C_AioRequestCompletion.h"
 #include "Network/Message.h"
 
-ssize_t request_handler(char msg_content[]);
+namespace client {
+typedef std::function<void(void*, std::string)> callback_t;
 
 class session
 {
 public:
-    session(boost::asio::io_service& ios)
+    session(boost::asio::io_service& ios, callback_t cb)
         : io_service_(ios),
         socket_(ios),
         counts(0),
+        cb(cb),
         buffer_(new char[sizeof(MsgHeader)]) {}
 
     ~session() {
         delete[] buffer_;
+    }
+
+    void set_arg(void* cb_arg) {
+      arg = cb_arg;
+      printf("set arg for session %p, arg: %p\n", this, arg);
     }
 
     void aio_write(std::string send_buffer) {
@@ -67,7 +75,7 @@ public:
           char* data_buffer = (char*)malloc(content_size);
           exact_read_bytes = socket_.read_some(boost::asio::buffer(data_buffer, content_size));
           if (exact_read_bytes == content_size) {
-            request_handler(data_buffer); 
+            cb(arg, std::move(std::string(data_buffer, content_size))); 
             free(data_buffer);
           } else {
             printf("client received bytes : %lu, less than expected %lu bytes\n", exact_read_bytes, content_size);
@@ -89,10 +97,9 @@ public:
       exact_read_bytes = socket_.read_some(boost::asio::buffer(data_buffer, content_size));
       //printf("client session %p received content\n", this);
       if (exact_read_bytes == content_size) {
-        ret = request_handler(data_buffer); 
+        cb(arg, std::move(std::string(data_buffer, content_size))); 
         free(data_buffer);
       }
-      return ret;
     }
 
     void start(boost::asio::ip::tcp::endpoint endpoint) {
@@ -126,12 +133,15 @@ private:
     uint64_t block_size_;
     char* buffer_;
     std::atomic<uint64_t> counts;
+    void* arg;
+    callback_t cb;
 };
 
+}// client
 class Connection {
 public:
-    Connection()
-        : thread_count_(8), s_id(0), session_count(8){
+    Connection(client::callback_t task)
+        : thread_count_(8), s_id(0), session_count(8), task(task){
         io_services_.resize(thread_count_);
         io_works_.resize(thread_count_);
         threads_.resize(thread_count_);
@@ -152,12 +162,6 @@ public:
         }
 
         resolver_.reset(new boost::asio::ip::tcp::resolver(*io_services_[0]));
-        for (size_t i = 0; i < session_count; ++i)
-        {
-            auto& io_service = *io_services_[i % thread_count_];
-            std::unique_ptr<session> new_session(new session(io_service));
-            sessions_.emplace_back(std::move(new_session));
-        }
     }
 
     ~Connection() {
@@ -172,7 +176,7 @@ public:
         }
     }
 
-    void connect( std::string host, std::string port ) {
+    void connect( std::string host, std::string port) {
         boost::asio::ip::tcp::resolver::iterator iter =
             resolver_->resolve(boost::asio::ip::tcp::resolver::query(host, port));
         endpoint_ = *iter;
@@ -180,6 +184,12 @@ public:
     }
 
     void start() {
+        for (size_t i = 0; i < session_count; ++i)
+        {
+            auto& io_service = *io_services_[i % thread_count_];
+            std::unique_ptr<client::session> new_session(new client::session(io_service, task));
+            sessions_.emplace_back(std::move(new_session));
+        }
         for (auto& session : sessions_) {
             session->start(endpoint_);
         }
@@ -191,18 +201,24 @@ public:
         }
     }
 
+    void set_session_arg(void* arg) {
+        for (auto& session : sessions_) {
+            session->set_arg(arg);
+        }
+    }
+
     int aio_communicate(std::string send_buffer) {
         sessions_[s_id]->aio_communicate(send_buffer);
         if (++s_id >= session_count) s_id = 0;
         return 0;
     }
 
-    ssize_t communicate(std::string send_buffer) {
+    int communicate(std::string send_buffer) {
       ssize_t ret = 0;
       sessions_[s_id]->write(send_buffer);
-      ret = sessions_[s_id]->read();
+      sessions_[s_id]->read();
       if (++s_id >= session_count) s_id = 0;
-      return ret;
+      return 0;
     }
 
 private:
@@ -213,9 +229,8 @@ private:
     std::vector<std::unique_ptr<boost::asio::io_service::work>> io_works_;
     std::unique_ptr<boost::asio::ip::tcp::resolver> resolver_;
     std::vector<std::unique_ptr<std::thread>> threads_;
-    std::vector<std::unique_ptr<session>> sessions_;
+    std::vector<std::unique_ptr<client::session>> sessions_;
     boost::asio::ip::tcp::endpoint endpoint_;
+    client::callback_t task;
 };
-
-
-
+#endif

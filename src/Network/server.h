@@ -12,8 +12,8 @@
 #include <future>
 #include "io_pool.h"
 #include "Message.h"
-#include "../HDCS_REQUEST_CTX.h"
 
+namespace hdcs_server {
 typedef std::function<void(void*, std::string)> callback_t;
 
 class session : public std::enable_shared_from_this<session>
@@ -76,6 +76,7 @@ private:
     char* buffer_;
     callback_t cb;
 };
+}// server
 
 class server
 {
@@ -92,8 +93,8 @@ public:
         acceptor_.listen();
     }
 
-    void start(callback_t task) {
-        std::shared_ptr<session> new_session(new session(
+    void start(hdcs_server::callback_t task) {
+        std::shared_ptr<hdcs_server::session> new_session(new hdcs_server::session(
             service_pool_.get_io_service(), task));
         auto& socket = new_session->socket();
         acceptor_.async_accept(socket,
@@ -111,7 +112,7 @@ public:
     }
     
     void send(void* session_id, std::string send_buffer) {
-      ((session*)session_id)->aio_write(send_buffer);
+      ((hdcs_server::session*)session_id)->aio_write(send_buffer);
     }
 private:
     int const thread_count_;

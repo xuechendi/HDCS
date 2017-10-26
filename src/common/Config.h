@@ -33,15 +33,15 @@ public:
         {"cache_ratio_health","0.85"},
         {"cache_dirty_timeout_nanoseconds", "10000000000"},
         {"cache_min_alloc_size","4096"},
-        {"cacheservice_threads_num","64"},
-        {"master_ip",  "127.0.0.1"},
-        {"slave_ip",  "192.168.5.11"},
-        {"messenger_port",  "9090"},
-        {"slave_messenger_port",  "9091"}
+        {"op_threads_num","64"},
+        {"local_port","9000"},
+        {"role","hdcs_replica"},
+        {"replication_nodes",  "192.168.3.100:9090, 192.168.3.100:9091"},
     };
-    Config(std::string name){
+    Config(std::string name, std::string config_name="general.conf"){
 
-        const std::string cfg_file = "general.conf";
+      std::cout << "config_file path: " << config_name << std::endl;
+        const std::string cfg_file = config_name;
         boost::property_tree::ptree pt;
         try {
             boost::property_tree::ini_parser::read_ini(cfg_file, pt);
@@ -74,7 +74,6 @@ public:
                 pt.put(name + "." + it->first, s);
             }
             configValues[it->first] = s;
-            std::cout << it->first << " : " << s << std::endl;
             s = "";
         }
         boost::property_tree::ini_parser::write_ini(cfg_file, pt);
@@ -82,6 +81,11 @@ public:
         configValues["cache_dir_dev"] = configValues["cache_dir"] + "/" + name + "_cache.data";
         configValues["cache_dir_meta"] = configValues["cache_dir"] + "/" + name + "_meta";
         configValues["cache_dir_run"] = configValues["cache_dir"] + "/" + name + "_run";
+
+        for (auto &it : configValues) {
+            std::cout << it.first << " : " << it.second << std::endl;
+
+        }
     }
     ~Config(){
     }
