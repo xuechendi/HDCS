@@ -161,8 +161,19 @@ void HDCSCore::aio_read (char* data, uint64_t offset, uint64_t length,  void* ar
   //process_request(req);
 }
 
-void HDCSCore::aio_write (const char* data, uint64_t offset, uint64_t length,  void* arg) {
-  Request *req = new Request(IO_TYPE_WRITE, const_cast<char*>(data), offset, length, arg);
+void HDCSCore::aio_write (char* data, uint64_t offset, uint64_t length,  void* arg) {
+  int replica_size = 1 + replication_core_map.size();
+  AioCompletion *comp = new AioCompletionImp([this, arg](ssize_t r){
+    ((AioCompletion*)arg)->complete(r); 
+  }, replica_size); 
+
+  hdcs_ioctx_t* io_ctx;
+  for (auto& replica_node : replication_core_map) {
+    io_ctx = (hdcs_ioctx_t*)replica_node.second;
+    hdcs::HDCS_REQUEST_CTX msg_content(HDCS_WRITE, io_ctx->hdcs_inst, comp, offset, length, data);
+    io_ctx->conn->aio_communicate(std::move(std::string(msg_content.data(), msg_content.size())));
+  }
+  Request *req = new Request(IO_TYPE_WRITE, data, offset, length, comp);
   request_queue.enqueue((void*)req);
   //process_request(req);
 }
