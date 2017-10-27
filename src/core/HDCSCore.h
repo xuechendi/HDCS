@@ -18,6 +18,7 @@ namespace hdcs {
 namespace core {
   class HDCSCore {
   public:
+    std::mutex core_lock;
     WorkQueue<void*> request_queue;
     HDCSCore(std::string name, std::string config_name);
     ~HDCSCore();
@@ -26,7 +27,7 @@ namespace core {
     void flush_all();
     void queue_io (Request *req);
     void aio_read (char* data, uint64_t offset, uint64_t length, void* c);
-    void aio_write (const char* data, uint64_t offset, uint64_t length, void* c);
+    void aio_write (char* data, uint64_t offset, uint64_t length, void* c);
   private:
     TWorkQueue *hdcs_op_threads;
     std::thread *main_thread;

@@ -37,7 +37,7 @@ public:
 
     void aio_write(std::string send_buffer) {
       Message msg(send_buffer);
-      boost::asio::async_write(socket_, boost::asio::buffer(msg.to_buffer()),
+      boost::asio::async_write(socket_, boost::asio::buffer(std::move(msg.to_buffer())),
         [this](const boost::system::error_code& err, uint64_t cb) {
         if (!err) {
           counts++;
@@ -48,13 +48,14 @@ public:
 
     void write(std::string send_buffer) {
       Message msg(send_buffer);
-      boost::asio::write(socket_,  boost::asio::buffer(msg.to_buffer()));
+      boost::asio::write(socket_,  boost::asio::buffer(std::move(msg.to_buffer())));
       counts++;
     }
 
     void aio_communicate(std::string send_buffer) {
       Message msg(send_buffer);
-      boost::asio::async_write(socket_, boost::asio::buffer(msg.to_buffer()),
+      boost::asio::async_write(socket_, boost::asio::buffer(std::move(msg.to_buffer())),
+      //boost::asio::async_write(socket_, boost::asio::buffer(msg.to_buffer()),
         [this](const boost::system::error_code& err, uint64_t cb) {
         if (!err) {
           counts++;
@@ -130,7 +131,6 @@ public:
 private:
     boost::asio::io_service& io_service_;
     boost::asio::ip::tcp::socket socket_;
-    uint64_t block_size_;
     char* buffer_;
     std::atomic<uint64_t> counts;
     void* arg;
