@@ -41,11 +41,15 @@ typedef uint8_t IO_TYPE;
       req_mutex.unlock();
     }
     void complete(int r) {
+      bool completed = false;
       req_mutex.lock();
       --pending_requests;
       status += r;
-      req_mutex.unlock();
       if (pending_requests == 0) {
+        completed = true;
+      }
+      req_mutex.unlock();
+      if (completed) {
         comp->complete(status);
         delete this;
       }
