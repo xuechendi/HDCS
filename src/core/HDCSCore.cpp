@@ -113,6 +113,22 @@ void HDCSCore::process() {
 }
 
 void HDCSCore::process_request(Request *req) {
+  if (req->io_type == IO_TYPE_WRITE) {
+    int replica_size = 1 + replication_core_map.size();
+    void* req_comp = req->comp;
+    AioCompletion *comp = new AioCompletionImp([this, req_comp](ssize_t r){
+      ((AioCompletion*)req_comp)->complete(r); 
+    }, replica_size); 
+
+    hdcs_ioctx_t* io_ctx;
+    for (auto& replica_node : replication_core_map) {
+      io_ctx = (hdcs_ioctx_t*)replica_node.second;
+      hdcs::HDCS_REQUEST_CTX msg_content(HDCS_WRITE, io_ctx->hdcs_inst,
+                                         comp, req->offset, req->length, req->data);
+      io_ctx->conn->aio_communicate(std::move(std::string(msg_content.data(), msg_content.size())));
+    }
+    req->comp = comp;
+  }
   // Request -> list<BlockRequest> -> list<BlockOp>
   //std::mutex block_request_list_lock;
   //BlockRequestList block_request_list;
@@ -162,18 +178,7 @@ void HDCSCore::aio_read (char* data, uint64_t offset, uint64_t length,  void* ar
 }
 
 void HDCSCore::aio_write (char* data, uint64_t offset, uint64_t length,  void* arg) {
-  int replica_size = 1 + replication_core_map.size();
-  AioCompletion *comp = new AioCompletionImp([this, arg](ssize_t r){
-    ((AioCompletion*)arg)->complete(r); 
-  }, replica_size); 
-
-  hdcs_ioctx_t* io_ctx;
-  for (auto& replica_node : replication_core_map) {
-    io_ctx = (hdcs_ioctx_t*)replica_node.second;
-    hdcs::HDCS_REQUEST_CTX msg_content(HDCS_WRITE, io_ctx->hdcs_inst, comp, offset, length, data);
-    io_ctx->conn->aio_communicate(std::move(std::string(msg_content.data(), msg_content.size())));
-  }
-  Request *req = new Request(IO_TYPE_WRITE, data, offset, length, comp);
+  Request *req = new Request(IO_TYPE_WRITE, data, offset, length, arg);
   request_queue.enqueue((void*)req);
   //process_request(req);
 }
