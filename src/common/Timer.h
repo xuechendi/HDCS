@@ -52,11 +52,11 @@ public:
    */
   bool cancel_event(Context *callback){
     //std::lock_guard<std::mutex> guard(map_lock);
-    std::unique_lock<std::mutex> l(map_lock, std::defer_lock);
-    l.lock();
+    //std::unique_lock<std::mutex> l(map_lock, std::defer_lock);
+    map_lock.lock();
     event_lookup_map_t::iterator event_it = events.find(callback);
     if (event_it == events.end()) {
-      l.unlock();
+      map_lock.unlock();
       return false;
     }
   
@@ -64,7 +64,7 @@ public:
   
     schedule.erase(event_it->second);
     events.erase(event_it);
-    l.unlock();
+    map_lock.unlock();
     return true;
   }
 
@@ -93,22 +93,22 @@ private:
         if (p->first <= now_l) {
           Context *callback = p->second;
           event_list.emplace_back(callback);
+          p++;
           event_lookup_map_t::iterator event_it = events.find(callback);
-          if (event_it != events.end()) {
-            events.erase(event_it);
-          }
-          //scheduled_map_t::iterator tmp = p;
-          //p++;
-          schedule.erase(p++);
+          assert (event_it != events.end());
+          schedule.erase(event_it->second);
+          events.erase(event_it);
+        } else {
+          break;
         }
       }
-      map_lock.unlock();
+      //map_lock.unlock();
 
       for (auto &cur_event : event_list) {
         cur_event->complete(0);
       }
   
-      map_lock.lock();
+      //map_lock.lock();
       if (schedule.empty()) {
         map_lock.unlock();
         cond.wait(unique_lock);

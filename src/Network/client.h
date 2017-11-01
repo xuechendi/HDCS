@@ -32,8 +32,9 @@ public:
 
     ~session() {
       cv.notify_all();
+      printf("delete session %p\n", this);
       delete[] buffer_;
-      delete read_worker;
+      printf("delete session %p completed\n", this);
     }
 
     void set_arg(void* cb_arg) {
@@ -65,8 +66,7 @@ public:
       Message msg(send_buffer);
       // insert into send_buffer firstly, and sent out in 0.1ms
       //batch_mutex.lock();
-      std::unique_lock<std::mutex> l(batch_mutex, std::defer_lock);
-      l.lock();
+      batch_mutex.lock();
       cache_buffer.append(std::move(msg.to_buffer()));
       if (batch_event != nullptr) {
         if (cache_buffer.size() >= 65536) {
@@ -74,22 +74,21 @@ public:
           aio_write(cache_buffer);
           batch_event = nullptr;
           cache_buffer.clear();
-          l.unlock();
+          batch_mutex.unlock();
 
           batch_send_timer.cancel_event(tmp);
         } else {
-          l.unlock();
+          batch_mutex.unlock();
         }
       } else {
-        l.unlock();
         batch_event = new hdcs::AioCompletionImp([&](ssize_t r){
-          std::unique_lock<std::mutex> l(batch_mutex, std::defer_lock);
-          l.lock();    
+          batch_mutex.lock();    
           aio_write(cache_buffer);
           batch_event = nullptr;
           cache_buffer.clear();
-          l.unlock();    
+          batch_mutex.unlock();    
         });
+        batch_mutex.unlock();
         batch_send_timer.add_event_after(100, batch_event);
       } 
     }
@@ -159,6 +158,7 @@ public:
           sleep(1);
           retry++;
         }
+        cv.notify_all();
         io_service_.post([this]() {
             socket_.close();
             printf("session %p closed\n", this);
@@ -186,7 +186,7 @@ private:
 class Connection {
 public:
     Connection(client::callback_t task)
-        : thread_count_(8), s_id(0), session_count(8),
+        : thread_count_(1), s_id(0), session_count(1),
         task(task) {
         io_services_.resize(thread_count_);
         io_works_.resize(thread_count_);
@@ -211,15 +211,18 @@ public:
     }
 
     ~Connection() {
+      printf("delete connection\n");
         for (auto& io_work : io_works_) {
             io_work.reset();
         }
+      printf("delete connection completed\n");
     }
 
     void close() {
         for (auto& session : sessions_) {
           session->stop();
         }
+        delete this;
     }
 
     void connect( std::string host, std::string port) {
