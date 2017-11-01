@@ -51,9 +51,12 @@ public:
    * Returns false if you never addded the callback in the first place.
    */
   bool cancel_event(Context *callback){
-    std::lock_guard<std::mutex> guard(map_lock);
-     event_lookup_map_t::iterator event_it = events.find(callback);
+    //std::lock_guard<std::mutex> guard(map_lock);
+    std::unique_lock<std::mutex> l(map_lock, std::defer_lock);
+    l.lock();
+    event_lookup_map_t::iterator event_it = events.find(callback);
     if (event_it == events.end()) {
+      l.unlock();
       return false;
     }
   
@@ -61,6 +64,7 @@ public:
   
     schedule.erase(event_it->second);
     events.erase(event_it);
+    l.unlock();
     return true;
   }
 
@@ -85,7 +89,7 @@ private:
       now_l = to_nanoseconds(now);
       std::list<Context*> event_list;
       map_lock.lock();
-      for (scheduled_map_t::iterator p = schedule.begin(); p != schedule.end(); p++) {
+      for (scheduled_map_t::iterator p = schedule.begin(); p != schedule.end();) {
         if (p->first <= now_l) {
           Context *callback = p->second;
           event_list.emplace_back(callback);
@@ -93,7 +97,9 @@ private:
           if (event_it != events.end()) {
             events.erase(event_it);
           }
-          schedule.erase(p);
+          //scheduled_map_t::iterator tmp = p;
+          //p++;
+          schedule.erase(p++);
         }
       }
       map_lock.unlock();
@@ -119,7 +125,7 @@ private:
   /* Schedule an event in the future
    * Call with the event_lock LOCKED */
   bool add_event_at(uint64_t when, Context *callback) {
-    std::lock_guard<std::mutex> guard(map_lock);
+    map_lock.lock();
     scheduled_map_t::iterator i = schedule.insert({when, callback});
   
     std::pair<event_lookup_map_t::iterator, bool> rval(events.insert({callback, i}));
@@ -130,7 +136,10 @@ private:
     /* If the event we have just inserted comes before everything else, we need to
      * adjust our timeout. */
     if (i == schedule.begin()) {
+      map_lock.unlock();
       cond.notify_all();
+    } else {
+      map_lock.unlock();
     }
     return true;
   }

@@ -79,7 +79,7 @@ void HDCSController::handle_request(void* session_id, std::string msg_content) {
       break;
     case HDCS_WRITE:
     {
-      //printf("[BEGIN]HDCS WRITE REQ: %lu - %lu\n", io_ctx->offset, (io_ctx->offset + io_ctx->length));
+      //fprintf(stderr, "HDCS WRITE REQ PROCESS: %p\n", io_ctx->comp);
       hdcs_inst = (core::HDCSCore*)io_ctx->hdcs_inst; 
       void* cli_comp = io_ctx->comp;
       char* aligned_data;

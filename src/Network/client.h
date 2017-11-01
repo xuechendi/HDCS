@@ -12,6 +12,8 @@
 #include <boost/asio/steady_timer.hpp>
 #include "io_pool.h"
 #include "Network/Message.h"
+#include "common/Timer.h"
+#include "common/AioCompletionImp.h"
 
 namespace client {
 typedef std::function<void(void*, std::string)> callback_t;
@@ -24,10 +26,14 @@ public:
         socket_(ios),
         counts(0),
         cb(cb),
+        batch_event(nullptr),
+        read_worker(nullptr),
         buffer_(new char[sizeof(MsgHeader)]) {}
 
     ~session() {
-        delete[] buffer_;
+      cv.notify_all();
+      delete[] buffer_;
+      delete read_worker;
     }
 
     void set_arg(void* cb_arg) {
@@ -36,11 +42,9 @@ public:
     }
 
     void aio_write(std::string send_buffer) {
-      Message msg(send_buffer);
-      boost::asio::async_write(socket_, boost::asio::buffer(std::move(msg.to_buffer())),
+      boost::asio::async_write(socket_, boost::asio::buffer(std::move(send_buffer)),
         [this](const boost::system::error_code& err, uint64_t cb) {
         if (!err) {
-          counts++;
         } else {
         }
       });
@@ -53,16 +57,41 @@ public:
     }
 
     void aio_communicate(std::string send_buffer) {
+      counts++;
+      if (read_worker == nullptr) {
+        read_worker = new std::thread(std::bind(&session::read_cycle, this)); 
+      }
+      cv.notify_all();
       Message msg(send_buffer);
-      boost::asio::async_write(socket_, boost::asio::buffer(std::move(msg.to_buffer())),
-      //boost::asio::async_write(socket_, boost::asio::buffer(msg.to_buffer()),
-        [this](const boost::system::error_code& err, uint64_t cb) {
-        if (!err) {
-          counts++;
-          read();
+      // insert into send_buffer firstly, and sent out in 0.1ms
+      //batch_mutex.lock();
+      std::unique_lock<std::mutex> l(batch_mutex, std::defer_lock);
+      l.lock();
+      cache_buffer.append(std::move(msg.to_buffer()));
+      if (batch_event != nullptr) {
+        if (cache_buffer.size() >= 65536) {
+          hdcs::AioCompletion* tmp = batch_event;
+          aio_write(cache_buffer);
+          batch_event = nullptr;
+          cache_buffer.clear();
+          l.unlock();
+
+          batch_send_timer.cancel_event(tmp);
         } else {
+          l.unlock();
         }
-      });
+      } else {
+        l.unlock();
+        batch_event = new hdcs::AioCompletionImp([&](ssize_t r){
+          std::unique_lock<std::mutex> l(batch_mutex, std::defer_lock);
+          l.lock();    
+          aio_write(cache_buffer);
+          batch_event = nullptr;
+          cache_buffer.clear();
+          l.unlock();    
+        });
+        batch_send_timer.add_event_after(100, batch_event);
+      } 
     }
 
     void aio_read() {
@@ -103,6 +132,14 @@ public:
       }
     }
 
+    void read_cycle() {
+      std::unique_lock<std::mutex> l(read_worker_mutex);
+      while(counts > 0) {
+        read();
+        if (counts == 0) cv.wait(l);
+      }
+    }
+
     void start(boost::asio::ip::tcp::endpoint endpoint) {
       try {
         socket_.connect(endpoint);
@@ -135,13 +172,22 @@ private:
     std::atomic<uint64_t> counts;
     void* arg;
     callback_t cb;
+
+    std::condition_variable cv;
+    std::string cache_buffer;
+    std::thread *read_worker;
+    std::mutex batch_mutex;
+    std::mutex read_worker_mutex;
+    hdcs::SafeTimer batch_send_timer;
+    hdcs::AioCompletion* batch_event;
 };
 
 }// client
 class Connection {
 public:
     Connection(client::callback_t task)
-        : thread_count_(8), s_id(0), session_count(8), task(task){
+        : thread_count_(8), s_id(0), session_count(8),
+        task(task) {
         io_services_.resize(thread_count_);
         io_works_.resize(thread_count_);
         threads_.resize(thread_count_);

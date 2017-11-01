@@ -28,6 +28,7 @@ void request_handler(void* io, std::string msg_content) {
         }
         break;
       case HDCS_WRITE_REPLY:
+        //fprintf(stderr, "HDCS WRITE REQ COMPLETED: %p\n", io_ctx->comp);
         ((hdcs::AioCompletion*)io_ctx->comp)->complete((ssize_t)io_ctx->ret_data_ptr);
         break;
       case HDCS_FLUSH_REPLY:

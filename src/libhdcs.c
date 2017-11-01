@@ -52,6 +52,7 @@ int hdcs_aio_read(void* io, char* data, uint64_t offset, uint64_t length, hdcs_c
 
 int hdcs_aio_write(void* io, const char* data, uint64_t offset, uint64_t length, hdcs_completion_t c){
   void* comp = (void*)c;
+  //fprintf(stderr, "HDCS WRITE REQ SEND: %p\n", comp);
   hdcs::HDCS_REQUEST_CTX msg_content(HDCS_WRITE, ((hdcs_ioctx_t*)io)->hdcs_inst, comp, offset, length, const_cast<char*>(data));
   ((hdcs_ioctx_t*)io)->conn->aio_communicate(std::move(std::string(msg_content.data(), msg_content.size())));
   return 0;
