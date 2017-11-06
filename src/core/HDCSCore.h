@@ -40,12 +40,14 @@ namespace core {
     //slave hdcs core list
     template<char delimiter>
     class WordDelimitedBy : public std::string {};
+    std::mutex replication_core_map_mutex;
     std::map<std::string, void*> replication_core_map;
 
     void process();
     void process_request(Request *req);
     void map_block(BlockRequest &&block_request);
     void connect_to_replica(std::string name);
+    void replica_send_out(AioCompletion* comp, uint64_t offset, uint64_t length, char* data);
 
   };
 }// core

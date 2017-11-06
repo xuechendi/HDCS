@@ -79,7 +79,12 @@ void HDCSController::handle_request(void* session_id, std::string msg_content) {
       break;
     case HDCS_WRITE:
     {
-      //printf("[BEGIN]HDCS WRITE REQ: %lu - %lu\n", io_ctx->offset, (io_ctx->offset + io_ctx->length));
+      //printf("[BEGIN]HDCS WRITE REQ: %lu - %lu\n", io_ctx->offset, (io_ctx->offset + io_ctx->length));/
+      if (io_ctx->offset == 871018496) {
+        struct timespec spec;
+        clock_gettime(CLOCK_REALTIME, &spec);
+        fprintf(stderr, "%lu: hdcscontroller received %lu - %lu\n", (spec.tv_sec * 1000000000L + spec.tv_nsec), io_ctx->offset, io_ctx->offset + io_ctx->length);
+      }
       hdcs_inst = (core::HDCSCore*)io_ctx->hdcs_inst; 
       void* cli_comp = io_ctx->comp;
       char* aligned_data;
