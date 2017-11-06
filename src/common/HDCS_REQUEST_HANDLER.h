@@ -8,6 +8,7 @@
 struct hdcs_ioctx_t{
   Connection* conn;
   void* hdcs_inst; 
+  std::atomic<void*> comp;
 };
 
 namespace client {
@@ -28,6 +29,12 @@ void request_handler(void* io, std::string msg_content) {
         }
         break;
       case HDCS_WRITE_REPLY:
+        if(((hdcs_ioctx_t*)io)->comp == io_ctx->comp) {
+          struct timespec spec;
+          clock_gettime(CLOCK_REALTIME, &spec);
+          fprintf(stderr, "%lu: client complete %p\n", (spec.tv_sec * 1000000000L + spec.tv_nsec), io_ctx->comp);
+          ((hdcs_ioctx_t*)io)->comp = nullptr;
+        }
         ((hdcs::AioCompletion*)io_ctx->comp)->complete((ssize_t)io_ctx->ret_data_ptr);
         break;
       case HDCS_FLUSH_REPLY:

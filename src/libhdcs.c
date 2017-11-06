@@ -52,6 +52,12 @@ int hdcs_aio_read(void* io, char* data, uint64_t offset, uint64_t length, hdcs_c
 
 int hdcs_aio_write(void* io, const char* data, uint64_t offset, uint64_t length, hdcs_completion_t c){
   void* comp = (void*)c;
+  if (offset == 871018496) {
+    ((hdcs_ioctx_t*)io)->comp = c;
+    struct timespec spec;
+    clock_gettime(CLOCK_REALTIME, &spec);
+    fprintf(stderr, "%lu: client send %lu - %lu, comp: %p\n", (spec.tv_sec * 1000000000L + spec.tv_nsec), offset, offset + length, comp);
+  }
   hdcs::HDCS_REQUEST_CTX msg_content(HDCS_WRITE, ((hdcs_ioctx_t*)io)->hdcs_inst, comp, offset, length, const_cast<char*>(data));
   ((hdcs_ioctx_t*)io)->conn->aio_communicate(std::move(std::string(msg_content.data(), msg_content.size())));
   return 0;

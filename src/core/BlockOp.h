@@ -242,6 +242,7 @@ public:
   }
   void send() {
     log_print("WriteBlockToCache block: %lu", block->block_id);
+    //int ret = 0;
     int ret = data_store->block_write(entry_id, data);
     complete(ret);
   }
