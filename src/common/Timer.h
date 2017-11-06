@@ -86,25 +86,22 @@ private:
       std::list<Context*> event_list;
       map_lock.lock();
       for (scheduled_map_t::iterator p = schedule.begin(); p != schedule.end();) {
-        if (p->first <= now_l) {
-          Context *callback = p->second;
+        scheduled_map_t::iterator tmp = p++;
+        if (tmp->first <= now_l) {
+          Context *callback = tmp->second;
           event_list.emplace_back(callback);
-          p++;
           event_lookup_map_t::iterator event_it = events.find(callback);
-          assert (event_it != events.end());
-          schedule.erase(event_it->second);
-          events.erase(event_it);
-        } else {
-          break;
+          if (event_it != events.end()) {
+            schedule.erase(event_it->second);
+            events.erase(event_it);
+          }
         }
       }
-      map_lock.unlock();
 
       for (auto &cur_event : event_list) {
         cur_event->complete(0);
       }
   
-      map_lock.lock();
       if (schedule.empty()) {
         map_lock.unlock();
         cond.wait(unique_lock);

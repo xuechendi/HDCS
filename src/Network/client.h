@@ -53,8 +53,7 @@ public:
     }
 
     void aio_communicate(std::string send_buffer) {
-      Message msg(send_buffer);
-      boost::asio::async_write(socket_, boost::asio::buffer(std::move(msg.to_buffer())),
+      boost::asio::async_write(socket_, boost::asio::buffer(send_buffer),
       //boost::asio::async_write(socket_, boost::asio::buffer(msg.to_buffer()),
         [this](const boost::system::error_code& err, uint64_t cb) {
         if (!err) {
@@ -208,9 +207,13 @@ public:
     }
 
     int aio_communicate(std::string send_buffer) {
-        sessions_[s_id]->aio_communicate(send_buffer);
-        if (++s_id >= session_count) s_id = 0;
-        return 0;
+      Message msg(send_buffer);
+      std::string tmp(std::move(msg.to_buffer()));
+      in_use_mutex.lock();
+      sessions_[s_id]->aio_communicate(tmp);
+      if (++s_id >= session_count) s_id = 0;
+      in_use_mutex.unlock();
+      return 0;
     }
 
     int communicate(std::string send_buffer) {
@@ -222,6 +225,7 @@ public:
     }
 
 private:
+    std::mutex in_use_mutex;
     std::atomic<int> s_id;
     int const thread_count_;
     int const session_count;
