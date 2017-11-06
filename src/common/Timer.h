@@ -85,15 +85,17 @@ private:
       now_l = to_nanoseconds(now);
       std::list<Context*> event_list;
       map_lock.lock();
-      for (scheduled_map_t::iterator p = schedule.begin(); p != schedule.end(); p++) {
+      for (scheduled_map_t::iterator p = schedule.begin(); p != schedule.end();) {
         if (p->first <= now_l) {
           Context *callback = p->second;
           event_list.emplace_back(callback);
+          p++;
           event_lookup_map_t::iterator event_it = events.find(callback);
-          if (event_it != events.end()) {
-            events.erase(event_it);
-          }
-          schedule.erase(p);
+          assert (event_it != events.end());
+          schedule.erase(event_it->second);
+          events.erase(event_it);
+        } else {
+          break;
         }
       }
       map_lock.unlock();
