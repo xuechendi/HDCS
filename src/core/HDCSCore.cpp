@@ -12,11 +12,12 @@
 #include "store/RBD/RBDImageStore.h"
 
 #include <string>
+#include "common/HDCS_REQUEST_HANDLER.h"
 
 namespace hdcs {
 namespace core {
-HDCSCore::HDCSCore(std::string name) {
-  config = new Config(name); 
+HDCSCore::HDCSCore(std::string name, std::string config_name) {
+  config = new Config(name, config_name); 
 
   std::string log_path = config->configValues["log_to_file"];
   std::cout << "log_path: " << log_path << std::endl;
@@ -27,7 +28,7 @@ HDCSCore::HDCSCore(std::string name) {
     if(-1==dup2(fileno(log_fd), STDERR_FILENO)){}
   }
 
-  int hdcs_thread_max = stoi(config->configValues["cacheservice_threads_num"]);
+  int hdcs_thread_max = stoi(config->configValues["op_threads_num"]);
   hdcs_op_threads = new TWorkQueue( hdcs_thread_max );
   uint64_t total_size = stoull(config->configValues["total_size"]);
   uint64_t block_size = stoull(config->configValues["cache_min_alloc_size"]);
@@ -63,6 +64,11 @@ HDCSCore::HDCSCore(std::string name) {
 
   go = true;
   main_thread = new std::thread(std::bind(&HDCSCore::process, this));
+
+  //connect to its replication_nodes
+  if (config->configValues["role"].compare(std::string("hdcs_master")) == 0) {
+    connect_to_replica(name);
+  }
 }
 
 HDCSCore::~HDCSCore() {
@@ -107,6 +113,22 @@ void HDCSCore::process() {
 }
 
 void HDCSCore::process_request(Request *req) {
+  if (req->io_type == IO_TYPE_WRITE) {
+    int replica_size = 1 + replication_core_map.size();
+    void* req_comp = req->comp;
+    AioCompletion *comp = new AioCompletionImp([this, req_comp](ssize_t r){
+      ((AioCompletion*)req_comp)->complete(r); 
+    }, replica_size); 
+
+    hdcs_ioctx_t* io_ctx;
+    for (auto& replica_node : replication_core_map) {
+      io_ctx = (hdcs_ioctx_t*)replica_node.second;
+      hdcs::HDCS_REQUEST_CTX msg_content(HDCS_WRITE, io_ctx->hdcs_inst,
+                                         comp, req->offset, req->length, req->data);
+      io_ctx->conn->aio_communicate(std::move(std::string(msg_content.data(), msg_content.size())));
+    }
+    req->comp = comp;
+  }
   // Request -> list<BlockRequest> -> list<BlockOp>
   //std::mutex block_request_list_lock;
   //BlockRequestList block_request_list;
@@ -155,10 +177,42 @@ void HDCSCore::aio_read (char* data, uint64_t offset, uint64_t length,  void* ar
   //process_request(req);
 }
 
-void HDCSCore::aio_write (const char* data, uint64_t offset, uint64_t length,  void* arg) {
-  Request *req = new Request(IO_TYPE_WRITE, const_cast<char*>(data), offset, length, arg);
+void HDCSCore::aio_write (char* data, uint64_t offset, uint64_t length,  void* arg) {
+  Request *req = new Request(IO_TYPE_WRITE, data, offset, length, arg);
   request_queue.enqueue((void*)req);
   //process_request(req);
+}
+
+void HDCSCore::connect_to_replica (std::string name) {
+  std::string addr;
+  std::string port;
+  int colon_pos, last_pos;
+  char c;
+
+  hdcs_ioctx_t* io_ctx;
+  std::istringstream iss(config->configValues["replication_nodes"]);
+  std::vector<std::string> replication_nodes((std::istream_iterator<WordDelimitedBy<','>>(iss)),
+                                       std::istream_iterator<WordDelimitedBy<','>>());
+  int replication_nodes_num = replication_nodes.size();
+  for (auto &addr_port_str : replication_nodes) {
+    colon_pos = addr_port_str.find(':');
+    addr = addr_port_str.substr(0, colon_pos);
+    c = addr_port_str.at(addr_port_str.length() - 1);
+
+    if (c == ',') last_pos = 2;
+    else last_pos = 1;
+    port = addr_port_str.substr(colon_pos + 1, addr_port_str.length() - colon_pos - last_pos);
+    std::cout << "Connect to replication_node: " << addr << " : " << port << std::endl;
+
+    io_ctx = (hdcs_ioctx_t*)malloc(sizeof(hdcs_ioctx_t));
+    replication_core_map[addr_port_str] = (void*)io_ctx;
+    io_ctx->conn = new Connection([](void* p, std::string s){client::request_handler(p, s);});
+    io_ctx->conn->connect(addr, port);
+    io_ctx->conn->set_session_arg((void*)io_ctx);
+
+    hdcs::HDCS_REQUEST_CTX msg_content(HDCS_CONNECT, nullptr, nullptr, 0, name.length(), const_cast<char*>(name.c_str()));
+    io_ctx->conn->communicate(std::move(std::string(msg_content.data(), msg_content.size())));
+  }
 }
 
 }// core

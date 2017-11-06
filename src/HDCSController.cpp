@@ -1,11 +1,9 @@
 // Copyright [2017] <Intel>
-#include "HDCS_REQUEST_CTX.h"
 #include "HDCSController.h"
-#include "core/HDCSCore.h"
 
 namespace hdcs {
-HDCSController::HDCSController() {
-  config = new Config("global"); 
+HDCSController::HDCSController(std::string name, std::string config_name): config_name(config_name) {
+  config = new Config(name, config_name); 
   std::string log_path = config->configValues["log_to_file"];
   std::cout << "log_path: " << log_path << std::endl;
   if( log_path!="false" ){
@@ -14,7 +12,7 @@ HDCSController::HDCSController() {
 	  if(log_fd==NULL){}
     if(-1==dup2(fileno(log_fd), STDERR_FILENO)){}
   }
-  network_service = new server(64, "0.0.0.0", "9000");
+  network_service = new server(16, "0.0.0.0", config->configValues["local_port"]);
   network_service->start([&](void* p, std::string s){handle_request(p, s);});
   network_service->wait();
 }
@@ -39,7 +37,7 @@ void HDCSController::handle_request(void* session_id, std::string msg_content) {
       hdcs_core_map_mutex.lock();
       auto it = hdcs_core_map.find(name);
       if (it == hdcs_core_map.end()) {
-        core::HDCSCore* core_inst = new core::HDCSCore(name);
+        core::HDCSCore* core_inst = new core::HDCSCore(name, config_name);
         auto ret = hdcs_core_map.insert(std::pair<std::string, core::HDCSCore*>(name, core_inst));
         assert (ret.second);
         it = ret.first;
@@ -81,6 +79,7 @@ void HDCSController::handle_request(void* session_id, std::string msg_content) {
       break;
     case HDCS_WRITE:
     {
+      //printf("[BEGIN]HDCS WRITE REQ: %lu - %lu\n", io_ctx->offset, (io_ctx->offset + io_ctx->length));
       hdcs_inst = (core::HDCSCore*)io_ctx->hdcs_inst; 
       void* cli_comp = io_ctx->comp;
       char* aligned_data;
@@ -92,7 +91,9 @@ void HDCSController::handle_request(void* session_id, std::string msg_content) {
         network_service->send(session_id, std::move(std::string(msg_content.data(), msg_content.size())));
         free(aligned_data);
       });
+      std::lock_guard<std::mutex> lock(hdcs_inst->core_lock);
       hdcs_inst->aio_write(aligned_data, io_ctx->offset, io_ctx->length, comp);
+      //printf("[SUBMIT]HDCS WRITE REQ: %lu - %lu\n", io_ctx->offset, (io_ctx->offset + io_ctx->length));
     }
       break;
     case HDCS_FLUSH:

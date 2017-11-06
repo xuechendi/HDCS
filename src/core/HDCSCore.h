@@ -11,20 +11,23 @@
 #include "core/BlockGuard.h"
 #include "core/policy/Policy.h"
 #include <mutex>
+#include <map>
+#include <string>
 
 namespace hdcs {
 namespace core {
   class HDCSCore {
   public:
+    std::mutex core_lock;
     WorkQueue<void*> request_queue;
-    HDCSCore(std::string name);
+    HDCSCore(std::string name, std::string config_name);
     ~HDCSCore();
     void close();
     void promote_all();
     void flush_all();
     void queue_io (Request *req);
     void aio_read (char* data, uint64_t offset, uint64_t length, void* c);
-    void aio_write (const char* data, uint64_t offset, uint64_t length, void* c);
+    void aio_write (char* data, uint64_t offset, uint64_t length, void* c);
   private:
     TWorkQueue *hdcs_op_threads;
     std::thread *main_thread;
@@ -34,10 +37,15 @@ namespace core {
     BlockGuard* block_guard;
     std::mutex block_request_list_lock;
     BlockRequestList block_request_list;
+    //slave hdcs core list
+    template<char delimiter>
+    class WordDelimitedBy : public std::string {};
+    std::map<std::string, void*> replication_core_map;
 
     void process();
     void process_request(Request *req);
     void map_block(BlockRequest &&block_request);
+    void connect_to_replica(std::string name);
 
   };
 }// core
