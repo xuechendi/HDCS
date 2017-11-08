@@ -22,7 +22,6 @@ public:
     virtual int async_send( std::string )=0;
 
     virtual ssize_t sync_send(std::string)=0;
-    virtual ssize_t sync_receive( char*& )=0;
 
     virtual bool if_session_work()=0;
     virtual bool if_timeout()=0;
@@ -34,7 +33,7 @@ public:
 
     virtual void set_option()=0;
     
-    virtual ssize_t communicate(std::string)=0;
+    virtual ssize_t communicate(std::string, ProcessMsgClient)=0;
     virtual void aio_communicate(std::string)=0;
     virtual void aio_receive(ProcessMsgClient)=0; 
 

@@ -8,20 +8,20 @@
 using namespace std;
 using namespace hdcs::networking;
 
-
+// record sending request times
 atomic<uint64_t> send_index(0);
+// receive ack times.
 atomic<uint64_t> receive_index(0);
 
 namespace hdcs{
 namespace networking{
-
 ssize_t handle_request(void* arg, string receive_buffer){
     receive_index++;
     if(receive_index%100000==0){
     // just print 35 bytes of every message.
         cout<<"*echo client* ACK ID is : "<<receive_index<<" . Msg is : "<<string(receive_buffer.begin(),receive_buffer.begin()+35)<<endl;
     }
-    // print complete message for the last message.  
+    // print complete message.  
     if( receive_index%1000000==0){
         cout<<endl;
         cout<<endl;
@@ -38,10 +38,16 @@ ssize_t handle_request(void* arg, string receive_buffer){
    }
    return 1;
 }
-
 }//networking
 } //hdcs
 
+/* hdcs::networking::client have four interface.
+ *
+ * interface 1 : constrction function.
+ * interface 2 : connect 
+ * interface 3 : communicate
+ * interface 4 : aio_communicate
+ */
 class test_class{
 public:
     test_class( int session_num, int thd_num){
@@ -58,6 +64,7 @@ public:
             if(i%100000==0){
                 cout<<"Now, sync sending the "<<i<<"-th msg"<<endl;
             }
+            // interface 2
             echo_client->communicate( send_buffer );
         }
         sleep(1);
@@ -100,7 +107,6 @@ public:
         async_send_request(5000000,64, send_buffer);
         sync_send_request(500000,send_buffer);
         async_send_request(5000000,64, send_buffer);
-
         sleep(2);
         cout<<endl;
         cout<<endl;
@@ -119,9 +125,7 @@ private:
     Connection* echo_client;
 };
 
-
 int main(){
-
 
     //uint64_t send_times = 10000000;
     uint64_t send_times = 100000;
@@ -157,22 +161,5 @@ int main(){
     cout<<endl;
     cout<<endl;
 
-
-
     return 1;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

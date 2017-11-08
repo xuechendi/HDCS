@@ -84,32 +84,12 @@ public:
         return 0;
     }
 
-    // namely, Communicate of HDCS
     ssize_t communicate( std::string send_buffer){
         if(is_begin_aio){
-           cancel();
-           is_begin_aio = false;
+            cancel();
+            is_begin_aio = false;
         }
-        ssize_t ret;
-        ret = session_vec[session_index]->sync_send(send_buffer);
-        if( ret < 0 ){
-            std::cout<<"Client::sync_process: sync_send failed. "<<std::endl;
-            assert(0);
-            return -1;
-        }
-        // use "response" to return received msg.
-        char* response; 
-        ret = session_vec[session_index]->sync_receive( response );
-        if(ret<0){
-            std::cout<<"Client::sync_process: sync_receive failed. "<<std::endl;
-            assert(0);
-            return -1;
-        }
-        // namely, execute handle_request of HDCS.
-        process_msg( process_msg_arg, std::move(std::string(response, ret))); ////!!!
-
-        delete[] response;
-
+        ssize_t ret = session_vec[session_index]->communicate(send_buffer, process_msg);
         if(++session_index >= session_vec.size()){
             session_index = 0;
         }

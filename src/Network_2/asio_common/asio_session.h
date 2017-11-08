@@ -69,10 +69,6 @@ public:
        return m_messenger->async_send(send_buffer);
     }
 
-    ssize_t sync_receive( char* &receive_buffer ){
-        return m_messenger->sync_receive( receive_buffer );
-    }
-
     void update_time(){
         last_active = boost::posix_time::microsec_clock::local_time();
     }
@@ -106,10 +102,8 @@ public:
         return m_messenger->get_socket();
     }
 
-    /***********************************************************/
-
-    ssize_t communicate(std::string send_buffer){
-        return m_messenger->communicate(send_buffer);
+    ssize_t communicate(std::string send_buffer, ProcessMsgClient _process_msg){
+        return m_messenger->communicate(send_buffer, _process_msg);
     }
 
     void aio_communicate(std::string send_buffer){

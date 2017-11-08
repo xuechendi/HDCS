@@ -6,11 +6,14 @@
 using namespace std;
 using namespace hdcs::networking;
 
-
-
+/* hdcs::networking::server have three interface.
+ * interface 1 : construction 
+ * interface 2 : start
+ * interface 3 : run
+ * interface 4 : send
+ */
 class test_class{
 public:
-
     test_class(string ip_address, string port_num, int s_num, int thd_num):
         echo_server(new server(ip_address, port_num, s_num, thd_num)){
     }
@@ -25,21 +28,21 @@ public:
                 handle_request(p, s);
                 });
         echo_server->run();
-        sleep(1000000);
     }
 
     void handle_request(void* s_id, string receive_buffer){
-        //cout<<"*****echo server******session id :  "<<s_id<<" : received MSG --->"<<receive_buffer<<"!!!!!!!!"<<endl;
 
-        string xx("this is a test program : i'm server   xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");//<<endl;
+        // produce 4k message content.
+        string xx("this is a test program : i'm server "); 
+        while(xx.size()<4096){
+            xx.push_back('x');
+        }
+
         echo_server->send((Session*)s_id, xx, NULL);
     }
 private:
     server* echo_server;
 };
-
-
-
 
 int main(){
 
@@ -54,10 +57,4 @@ int main(){
     test.run(  );
 
     return 0;
-
-
 } 
-
-
-
-
