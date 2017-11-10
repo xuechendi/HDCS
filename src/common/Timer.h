@@ -92,18 +92,16 @@ private:
           event_list.emplace_back(callback);
           event_lookup_map_t::iterator event_it = events.find(callback);
           if (event_it != events.end()) {
+            schedule.erase(event_it->second);
             events.erase(event_it);
           }
-          schedule.erase(tmp);
         }
       }
-      map_lock.unlock();
 
       for (auto &cur_event : event_list) {
         cur_event->complete(0);
       }
   
-      map_lock.lock();
       if (schedule.empty()) {
         map_lock.unlock();
         cond.wait(unique_lock);

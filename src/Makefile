@@ -60,7 +60,8 @@ endif
 
 ifeq ($(POLICY), ALL)
 $(CONTROLLER): core/policy/CachePolicy.o core/policy/TierPolicy.o $(COMMON_OBJECTS) $(RBD_OBJECTS) $(NETWORK_OBJECTS)
-	${CXX} ${CXXFLAGS} ${INCS} -DCACHE_POLICY -DTIER_POLICY  core/HDCSCore.cpp HDCSController.cpp HDCS.cpp -o $@ $^ ${PLATFORM_LDFLAGS}
+	${CXX} ${CXXFLAGS} ${INCS} -DCACHE_POLICY -DTIER_POLICY core/HDCSCore.cpp HDCSController.cpp HDCS.cpp -o $@ $^ ${PLATFORM_LDFLAGS}
+#	${CXX} ${CXXFLAGS} ${INCS} -DTIER_POLICY core/policy/TierPolicy.cpp core/HDCSCore.cpp HDCSController.cpp HDCS.cpp -o $@ $^ ${PLATFORM_LDFLAGS}
 endif
 
 $(DIST_LIB):

@@ -13,10 +13,10 @@ class BlockRequest {
 public:
   BlockRequest(char* data_ptr, uint64_t offset,
                uint64_t size, Request* req,
-               Block* block) :
+               Block* block, AioCompletion* comp) :
                data_ptr(data_ptr), offset(offset), 
                size(size), req(req), block(block),
-               should_delete(false) {
+               comp(comp), should_delete(false) {
     if (req != nullptr) {
       req->add_request();  
     }           
@@ -34,6 +34,7 @@ public:
   char* data_ptr;
   Request* req;
   bool should_delete;
+  AioCompletion* comp;
 };
 typedef std::list<BlockRequest> BlockRequestList;
 
