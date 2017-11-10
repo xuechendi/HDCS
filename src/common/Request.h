@@ -57,7 +57,6 @@ typedef uint8_t IO_TYPE;
       req_mutex.unlock();
       if (completed) {
         comp->complete(status);
-        //delete this;
       }
     }
   };
