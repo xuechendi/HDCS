@@ -59,7 +59,6 @@ $(DIST_LIB): core/policy/TierPolicy.o $(COMMON_OBJECTS) $(RBD_OBJECTS) $(TIER_CO
 endif
 
 ifeq ($(POLICY), ALL)
-#$(CONTROLLER): core/policy/CachePolicy.o core/policy/TierPolicy.o $(COMMON_OBJECTS) $(RBD_OBJECTS) $(NETWORK_OBJECTS)
 $(CONTROLLER): core/policy/CachePolicy.o core/policy/TierPolicy.o $(COMMON_OBJECTS) $(RBD_OBJECTS) 
 	${CXX} ${CXXFLAGS} ${INCS} -DCACHE_POLICY -DTIER_POLICY  core/HDCSCore.cpp HDCSController.cpp HDCS.cpp -o $@ $^ ${PLATFORM_LDFLAGS}
 endif

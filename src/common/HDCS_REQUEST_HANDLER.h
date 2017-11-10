@@ -5,12 +5,6 @@
 #include "Network_2/hdcs_networking.h"
 #include "common/HDCS_REQUEST_CTX.h"
 
-struct hdcs_ioctx_t{
-    hdcs::networking::Connection* conn;
-  void* hdcs_inst; 
-  std::atomic<void*> comp;
-};
-
 namespace client {
 
 void request_handler(void* io, std::string msg_content) {

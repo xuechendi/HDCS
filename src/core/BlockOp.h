@@ -469,6 +469,23 @@ private:
   store::DataStore *back_store;
 };
 
+class WaitForAioCompletion : public BlockOp{
+public:
+  WaitForAioCompletion(AioCompletion* comp,
+                     Block* block,
+                     BlockRequest* block_request,
+                     BlockOp* block_op) :
+                     BlockOp(block, block_request, block_op),
+                     comp(comp) {
+  }
+  void send() {
+    comp->complete(0);
+    comp->wait_for_complete();
+    complete(0);
+  }
+private:
+  AioCompletion* comp;
+};
 } //core
 
 } //hdcs

@@ -53,13 +53,16 @@ public:
     }
 
     void aio_communicate(std::string send_buffer) {
+      send_lock.lock();
       boost::asio::async_write(socket_, boost::asio::buffer(send_buffer),
       //boost::asio::async_write(socket_, boost::asio::buffer(msg.to_buffer()),
         [this](const boost::system::error_code& err, uint64_t cb) {
         if (!err) {
           counts++;
+          send_lock.unlock();
           read();
         } else {
+          send_lock.unlock();
         }
       });
     }
@@ -134,13 +137,14 @@ private:
     std::atomic<uint64_t> counts;
     void* arg;
     callback_t cb;
+    std::mutex send_lock;
 };
 
 }// client
 class Connection {
 public:
     Connection(client::callback_t task)
-        : thread_count_(8), s_id(0), session_count(8), task(task){
+        : thread_count_(16), s_id(0), session_count(16), task(task){
         io_services_.resize(thread_count_);
         io_works_.resize(thread_count_);
         threads_.resize(thread_count_);
@@ -209,10 +213,13 @@ public:
     int aio_communicate(std::string send_buffer) {
       Message msg(send_buffer);
       std::string tmp(std::move(msg.to_buffer()));
+      int tmp_id = 0;
       in_use_mutex.lock();
-      sessions_[s_id]->aio_communicate(tmp);
-      if (++s_id >= session_count) s_id = 0;
+      tmp_id = s_id++;
+      if(s_id >= session_count) s_id = 0;
       in_use_mutex.unlock();
+      sessions_[tmp_id]->aio_communicate(tmp);
+      //if (++s_id >= session_count) s_id = 0;
       return 0;
     }
 

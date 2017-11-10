@@ -14,7 +14,7 @@ TierPolicy::TierPolicy(uint64_t total_size, uint32_t block_size,
                        store::DataStore *data_store,
                        store::DataStore *back_store,
                        WorkQueue<void*> *request_queue,
-                       int process_threads_num) :
+                       int process_threads_num): 
                       total_size(total_size), block_size(block_size),
                       data_store(data_store), back_store(back_store),
                       request_queue(request_queue),
@@ -89,6 +89,11 @@ BlockOp* TierPolicy::map(BlockRequest &&block_request, BlockOp** block_op_end) {
         block_op = new DemoteBlockBuffer(block_buffer, block, block_request_ptr, block_op);
         block_op = new WriteBlockToCache(block_id, block_buffer, data_store,
                                          block, block_request_ptr, block_op); 
+
+          if (block_request_ptr->comp) {
+            block_op = new WaitForAioCompletion(block_request_ptr->comp, block, block_request_ptr, block_op);
+          }
+
         block_op = new WriteToBuffer(block_buffer, block, block_request_ptr, block_op);
         block_op = new PromoteBlockFromBackend(block_buffer, back_store,
                                                block, block_request_ptr, block_op); 
@@ -96,6 +101,9 @@ BlockOp* TierPolicy::map(BlockRequest &&block_request, BlockOp** block_op_end) {
           // full block write
           block_op = new WriteBlockToCache(block_id, block_request_ptr->data_ptr, data_store,
                                            block, block_request_ptr, block_op);
+          if (block_request_ptr->comp) {
+            block_op = new WaitForAioCompletion(block_request_ptr->comp, block, block_request_ptr, block_op);
+          }
         }
       } else {
         if (block_request_ptr->size < block->block_size) {
@@ -104,6 +112,9 @@ BlockOp* TierPolicy::map(BlockRequest &&block_request, BlockOp** block_op_end) {
           block_op = new DemoteBlockBuffer(block_buffer, block, block_request_ptr, block_op);
           block_op = new WriteBlockToCache(block_id, block_buffer, data_store,
                                            block, block_request_ptr, block_op); 
+          if (block_request_ptr->comp) {
+            block_op = new WaitForAioCompletion(block_request_ptr->comp, block, block_request_ptr, block_op);
+          }
           block_op = new WriteToBuffer(block_buffer, block, block_request_ptr, block_op);
           block_op = new ReadBlockFromCache(block_id, block_buffer,
                                             data_store, block, block_request_ptr, block_op); 
@@ -111,6 +122,9 @@ BlockOp* TierPolicy::map(BlockRequest &&block_request, BlockOp** block_op_end) {
           // full block write
           block_op = new WriteBlockToCache(block_id, block_request_ptr->data_ptr, data_store,
                                            block, block_request_ptr, block_op);
+          if (block_request_ptr->comp) {
+            block_op = new WaitForAioCompletion(block_request_ptr->comp, block, block_request_ptr, block_op);
+          }
         }
       }
       break;
