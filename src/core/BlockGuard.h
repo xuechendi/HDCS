@@ -6,7 +6,7 @@
 #include "BlockMap.h"
 #include "common/AioCompletionImp.h"
 #include "common/HDCS_REQUEST_CTX.h"
-#include "Network/client.h"
+#include "Network_2/hdcs_networking.h"
 #include "common/Log.h"
 #include <mutex>
 namespace hdcs {

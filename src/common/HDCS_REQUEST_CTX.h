@@ -8,10 +8,14 @@
 #include <string.h>
 #include "common/C_AioRequestCompletion.h"
 
-class Connection;
+namespace hdcs {
+namespace networking {
+  class Connection;
+}
+}
 
 struct hdcs_ioctx_t{
-  Connection* conn;
+  hdcs::networking::Connection* conn;
   void* hdcs_inst; 
   std::atomic<void*> comp;
 };
