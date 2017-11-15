@@ -64,7 +64,7 @@ CachePolicy::CachePolicy(uint64_t total_size, uint64_t cache_size, uint32_t bloc
       free_lru.touch_key(&entry);
     }
   }
-  delete entry_to_block_map;
+  delete[] entry_to_block_map;
   process_thread = new std::thread(std::bind(&CachePolicy::process, this));
 }
 

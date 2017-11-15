@@ -78,6 +78,10 @@ HDCSCore::~HDCSCore() {
   go = false;
   main_thread->join();
   delete hdcs_op_threads;
+  for (auto& hdcs_replica : replication_core_map) {
+    ((hdcs_ioctx_t*)hdcs_replica.second)->conn->close();
+    free((hdcs_ioctx_t*)hdcs_replica.second);
+  }
   delete policy;
   delete block_guard;
   delete main_thread;
@@ -131,10 +135,9 @@ void HDCSCore::process_request(Request *req) {
   //std::mutex block_request_list_lock;
   //BlockRequestList block_request_list;
   std::lock_guard<std::mutex> lock(block_request_list_lock);
-  block_guard->create_block_requests(req, &block_request_list);
+  block_guard->create_block_requests(std::shared_ptr<Request>(req), &block_request_list);
 
   for (BlockRequestList::iterator it = block_request_list.begin(); it != block_request_list.end();) { 
-    log_print("block %lu: %lu-%lu", it->block->block_id, it->offset, it->size); 
     if (!it->block->in_discard_process) {
       map_block(std::move(*it));
       block_request_list.erase(it++);

@@ -136,10 +136,6 @@ public:
   void send() {
     log_print("PromoteBlockFromBackend block: %lu", block->block_id);
     uint64_t block_id = block->block_id;
-    /*AioCompletion* on_finish = new AioCompletion(
-      [this](ssize_t r){
-        complete(r);
-    });*/ 
     int ret = back_store->block_read(block_id, data);
     complete(ret);
   }
@@ -471,7 +467,7 @@ private:
 
 class WaitForAioCompletion : public BlockOp{
 public:
-  WaitForAioCompletion(AioCompletion* comp,
+  WaitForAioCompletion(std::shared_ptr<AioCompletion> comp,
                      Block* block,
                      BlockRequest* block_request,
                      BlockOp* block_op) :
@@ -484,7 +480,7 @@ public:
     complete(0);
   }
 private:
-  AioCompletion* comp;
+  std::shared_ptr<AioCompletion> comp;
 };
 } //core
 

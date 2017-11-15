@@ -37,7 +37,7 @@ public:
     }
   }
 
-  void create_block_requests(Request *req, BlockRequestList *block_request_list) {
+  void create_block_requests(std::shared_ptr<Request> req, BlockRequestList *block_request_list) {
     uint64_t offset = req->offset;
     uint64_t length = req->length;
     uint64_t left = length;
@@ -47,6 +47,7 @@ public:
     Block* block;
     uint64_t block_id;
     AioCompletion* replica_write_comp;
+    //std::shared_ptr<AioCompletion> comp;
     AioCompletion* comp;
 
     uint64_t tmp_length = (length + (offset % block_size));
@@ -69,13 +70,14 @@ public:
           hdcs::HDCS_REQUEST_CTX msg_content(HDCS_WRITE, ((hdcs_ioctx_t*)io_ctx)->hdcs_inst, replica_write_comp, offset, length, data_ptr);
           ((hdcs_ioctx_t*)io_ctx)->conn->aio_communicate(std::move(std::string(msg_content.data(), msg_content.size())));
         }
-      }, (shared_comp_count));
+      }, (shared_comp_count), false);
     } else {
       /*aio_completion when shared_op synced.*/
       comp = new AioCompletionImp([this](ssize_t r){
-      },shared_comp_count);
+      },shared_comp_count, false);
     }
 
+    std::shared_ptr<AioCompletion> shared_comp(comp);
     std::lock_guard<std::mutex> lock(block_map_lock);
     while(left) {
       block_id = offset / block_size;
@@ -86,7 +88,7 @@ public:
                           (block_size - offset_by_block):left;
       block_request_list->emplace_back(std::move(BlockRequest(
                                        data_ptr, offset_by_block,
-                                       length_by_block, req, block, comp)));
+                                       length_by_block, req, block, shared_comp)));
       data_ptr = req->data + length_by_block;
       left -= length_by_block;
       offset += length_by_block;

@@ -36,7 +36,8 @@ TierPolicy::TierPolicy(uint64_t total_size, uint32_t block_size,
 }
 
 TierPolicy::~TierPolicy() {
-
+  delete data_store;
+  delete back_store;
 }
 
 BlockOp* TierPolicy::map(BlockRequest &&block_request, BlockOp** block_op_end) {
@@ -90,9 +91,9 @@ BlockOp* TierPolicy::map(BlockRequest &&block_request, BlockOp** block_op_end) {
         block_op = new WriteBlockToCache(block_id, block_buffer, data_store,
                                          block, block_request_ptr, block_op); 
 
-          if (block_request_ptr->comp) {
-            block_op = new WaitForAioCompletion(block_request_ptr->comp, block, block_request_ptr, block_op);
-          }
+        if (block_request_ptr->comp) {
+          block_op = new WaitForAioCompletion(block_request_ptr->comp, block, block_request_ptr, block_op);
+        }
 
         block_op = new WriteToBuffer(block_buffer, block, block_request_ptr, block_op);
         block_op = new PromoteBlockFromBackend(block_buffer, back_store,
