@@ -19,13 +19,13 @@ namespace core {
   class HDCSCore {
   public:
     std::mutex core_lock;
-    WorkQueue<void*> request_queue;
+    WorkQueue<std::shared_ptr<Request>> request_queue;
     HDCSCore(std::string name, std::string config_name);
     ~HDCSCore();
     void close();
     void promote_all();
     void flush_all();
-    void queue_io (Request *req);
+    void queue_io (std::shared_ptr<Request> req);
     void aio_read (char* data, uint64_t offset, uint64_t length, void* c);
     void aio_write (char* data, uint64_t offset, uint64_t length, void* c);
   private:
@@ -44,7 +44,7 @@ namespace core {
     hdcs_replica_nodes_t replication_core_map;
 
     void process();
-    void process_request(Request *req);
+    void process_request(std::shared_ptr<Request> req);
     void map_block(BlockRequest &&block_request);
     void connect_to_replica(std::string name);
     void replica_send_out(AioCompletion* comp, uint64_t offset, uint64_t length, char* data);

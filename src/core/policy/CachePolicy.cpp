@@ -13,7 +13,7 @@ namespace core {
 CachePolicy::CachePolicy(uint64_t total_size, uint64_t cache_size, uint32_t block_size,
             Block** block_map, store::DataStore *data_store, store::DataStore *back_store,
             float cache_ratio_health,
-            WorkQueue<void*> *request_queue,
+            WorkQueue<std::shared_ptr<Request>> *request_queue,
             uint64_t timeout_nanoseconds,
             CACHE_MODE_TYPE cache_mode,
             int process_threads_num) :
@@ -64,7 +64,7 @@ CachePolicy::CachePolicy(uint64_t total_size, uint64_t cache_size, uint32_t bloc
       free_lru.touch_key(&entry);
     }
   }
-  delete entry_to_block_map;
+  delete[] entry_to_block_map;
   process_thread = new std::thread(std::bind(&CachePolicy::process, this));
 }
 
@@ -109,8 +109,8 @@ BlockOp* CachePolicy::map(BlockRequest &&block_request, BlockOp** block_op_end) 
       char* data;
       posix_memalign((void**)&data, 4096, sizeof(char)*block_size);
       comp->set_reserved_ptr((void*)data);
-      Request* req = new Request(IO_TYPE_FLUSH, data, (block_id * block_size), block_size, comp);
-      request_queue->enqueue((void*)req);
+      std::shared_ptr<Request> req = std::make_shared<Request>(IO_TYPE_FLUSH, data, (block_id * block_size), block_size, comp);
+      request_queue->enqueue(req);
       process_blocks_count++;
     });
   }
@@ -367,7 +367,6 @@ void CachePolicy::process() {
     clean_lru.get_keys((void**)(block_list+need_to_flush_count), (need_to_evict_count - need_to_flush_count), false);
 
     //queue req to request_queue
-    Request* req;
     char* data;
     AioCompletion* comp;
     Block* block;
@@ -386,8 +385,8 @@ void CachePolicy::process() {
       });
       posix_memalign((void**)&data, 4096, sizeof(char)*block->block_size);
       comp->set_reserved_ptr((void*)data);
-      req = new Request(IO_TYPE_DEMOTE_CACHE, data, (block->block_id * block->block_size), block->block_size, comp);
-      request_queue->enqueue((void*)req);
+      std::shared_ptr<Request> req = std::make_shared<Request>(IO_TYPE_DEMOTE_CACHE, data, (block->block_id * block->block_size), block->block_size, comp);
+      request_queue->enqueue(req);
       process_blocks_count++;
     }
     free(block_list);
@@ -407,7 +406,6 @@ void CachePolicy::flush_all() {
   }
 
   //queue req to request_queue
-  Request* req;
   char* data;
   AioCompletion* comp;
   Block* block;
@@ -430,8 +428,8 @@ void CachePolicy::flush_all() {
     });
     posix_memalign((void**)&data, 4096, sizeof(char)*block->block_size);
     comp->set_reserved_ptr((void*)data);
-    req = new Request(IO_TYPE_FLUSH, data, (block->block_id * block->block_size), block->block_size, comp);
-    request_queue->enqueue((void*)req);
+    std::shared_ptr<Request> req = std::make_shared<Request>(IO_TYPE_FLUSH, data, (block->block_id * block->block_size), block->block_size, comp);
+    request_queue->enqueue(req);
     flush_all_blocks_count++;
   }
   uint64_t tmp = flush_all_blocks_count;

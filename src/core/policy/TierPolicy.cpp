@@ -13,7 +13,7 @@ TierPolicy::TierPolicy(uint64_t total_size, uint32_t block_size,
                        Block** block_map,
                        store::DataStore *data_store,
                        store::DataStore *back_store,
-                       WorkQueue<void*> *request_queue,
+                       WorkQueue<std::shared_ptr<Request>> *request_queue,
                        int process_threads_num): 
                       total_size(total_size), block_size(block_size),
                       data_store(data_store), back_store(back_store),
@@ -36,7 +36,8 @@ TierPolicy::TierPolicy(uint64_t total_size, uint32_t block_size,
 }
 
 TierPolicy::~TierPolicy() {
-
+  delete data_store;
+  delete back_store;
 }
 
 BlockOp* TierPolicy::map(BlockRequest &&block_request, BlockOp** block_op_end) {
@@ -90,9 +91,9 @@ BlockOp* TierPolicy::map(BlockRequest &&block_request, BlockOp** block_op_end) {
         block_op = new WriteBlockToCache(block_id, block_buffer, data_store,
                                          block, block_request_ptr, block_op); 
 
-          if (block_request_ptr->comp) {
-            block_op = new WaitForAioCompletion(block_request_ptr->comp, block, block_request_ptr, block_op);
-          }
+        if (block_request_ptr->comp) {
+          block_op = new WaitForAioCompletion(block_request_ptr->comp, block, block_request_ptr, block_op);
+        }
 
         block_op = new WriteToBuffer(block_buffer, block, block_request_ptr, block_op);
         block_op = new PromoteBlockFromBackend(block_buffer, back_store,
@@ -169,7 +170,6 @@ BlockOp* TierPolicy::map(BlockRequest &&block_request, BlockOp** block_op_end) {
 void TierPolicy::flush_all() {
   std::unique_lock<std::mutex> unique_lock(flush_all_cond_lock);
   //queue req to request_queue
-  Request* req;
   char* data;
   AioCompletion* comp;
   //Block* block;
@@ -189,8 +189,8 @@ void TierPolicy::flush_all() {
     });
     posix_memalign((void**)&data, 4096, sizeof(char)*block_size);
     comp->set_reserved_ptr((void*)data);
-    req = new Request(IO_TYPE_FLUSH, data, (block_id * block_size), block_size, comp);
-    request_queue->enqueue((void*)req);
+    std::shared_ptr<Request> req = std::make_shared<Request>(IO_TYPE_FLUSH, data, (block_id * block_size), block_size, comp);
+    request_queue->enqueue(req);
     flush_all_blocks_count ++;
   }
   uint64_t tmp = flush_all_blocks_count;
@@ -204,7 +204,6 @@ void TierPolicy::flush_all() {
 void TierPolicy::promote_all() {
   std::unique_lock<std::mutex> unique_lock(flush_all_cond_lock);
   //queue req to request_queue
-  Request* req;
   char* data;
   AioCompletion* comp;
   //Block* block;
@@ -224,8 +223,8 @@ void TierPolicy::promote_all() {
     });
     posix_memalign((void**)&data, 4096, sizeof(char)*block_size);
     comp->set_reserved_ptr((void*)data);
-    req = new Request(IO_TYPE_PROMOTE, data, (block_id * block_size), block_size, comp);
-    request_queue->enqueue((void*)req);
+    std::shared_ptr<Request> req = std::make_shared<Request>(IO_TYPE_PROMOTE, data, (block_id * block_size), block_size, comp);
+    request_queue->enqueue(req);
     flush_all_blocks_count ++;
   }
   uint64_t tmp = flush_all_blocks_count;

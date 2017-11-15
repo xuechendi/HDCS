@@ -28,7 +28,7 @@ public:
               store::DataStore *data_store,
               store::DataStore *back_store,
               float cache_ratio_health,
-              WorkQueue<void*> *request_queue,
+              WorkQueue<std::shared_ptr<Request>> *request_queue,
               uint64_t timeout_nanoseconds,
               CACHE_MODE_TYPE cache_mode,
               int process_threads_num);
@@ -55,7 +55,7 @@ private:
   store::DataStore *data_store;
   store::DataStore *back_store;
   float cache_ratio_health;
-  WorkQueue<void*> *request_queue;
+  WorkQueue<std::shared_ptr<Request>> *request_queue;
   SafeTimer timer;
 
   std::thread *process_thread;

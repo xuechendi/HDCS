@@ -12,8 +12,8 @@ namespace core {
 class BlockRequest {
 public:
   BlockRequest(char* data_ptr, uint64_t offset,
-               uint64_t size, Request* req,
-               Block* block, AioCompletion* comp) :
+               uint64_t size, std::shared_ptr<Request> req,
+               Block* block, std::shared_ptr<AioCompletion> comp) :
                data_ptr(data_ptr), offset(offset), 
                size(size), req(req), block(block),
                comp(comp), should_delete(false) {
@@ -32,9 +32,9 @@ public:
   uint64_t offset;
   uint64_t size;
   char* data_ptr;
-  Request* req;
   bool should_delete;
-  AioCompletion* comp;
+  std::shared_ptr<Request> req;
+  std::shared_ptr<AioCompletion> comp;
 };
 typedef std::list<BlockRequest> BlockRequestList;
 

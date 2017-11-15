@@ -22,7 +22,7 @@ public:
               Block** block_map,
               store::DataStore *data_store,
               store::DataStore *back_store,
-              WorkQueue<void*> *request_queue,
+              WorkQueue<std::shared_ptr<Request>> *request_queue,
               int process_threads_num);
   ~TierPolicy();
   BlockOp* map(BlockRequest &&block_request, BlockOp** block_op_end);
@@ -38,7 +38,7 @@ private:
 
   store::DataStore *data_store;
   store::DataStore *back_store;
-  WorkQueue<void*> *request_queue;
+  WorkQueue<std::shared_ptr<Request>> *request_queue;
 
   std::condition_variable flush_all_cond;
   std::mutex flush_all_cond_lock;

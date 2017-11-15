@@ -78,6 +78,10 @@ HDCSCore::~HDCSCore() {
   go = false;
   main_thread->join();
   delete hdcs_op_threads;
+  for (auto& hdcs_replica : replication_core_map) {
+    ((hdcs_ioctx_t*)hdcs_replica.second)->conn->close();
+    free((hdcs_ioctx_t*)hdcs_replica.second);
+  }
   delete policy;
   delete block_guard;
   delete main_thread;
@@ -101,14 +105,14 @@ void HDCSCore::flush_all() {
 #endif
 }
 
-void HDCSCore::queue_io(Request *req) {
+void HDCSCore::queue_io(std::shared_ptr<Request> req) {
   //request_queue.enqueue((void*)req);
   process_request(req);
 }
 
 void HDCSCore::process() {
   while(go){
-    Request *req = (Request*)request_queue.dequeue();
+    std::shared_ptr<Request> req = request_queue.dequeue();
     if (req != nullptr) {
       //TODO: add TS;
       if (req->offset == 871018496) {
@@ -127,14 +131,13 @@ void HDCSCore::process() {
   }
 }
 
-void HDCSCore::process_request(Request *req) {
+void HDCSCore::process_request(std::shared_ptr<Request> req) {
   //std::mutex block_request_list_lock;
   //BlockRequestList block_request_list;
   std::lock_guard<std::mutex> lock(block_request_list_lock);
   block_guard->create_block_requests(req, &block_request_list);
 
   for (BlockRequestList::iterator it = block_request_list.begin(); it != block_request_list.end();) { 
-    log_print("block %lu: %lu-%lu", it->block->block_id, it->offset, it->size); 
     if (!it->block->in_discard_process) {
       map_block(std::move(*it));
       block_request_list.erase(it++);
@@ -170,15 +173,15 @@ void HDCSCore::map_block(BlockRequest &&block_request) {
 }
 
 void HDCSCore::aio_read (char* data, uint64_t offset, uint64_t length,  void* arg) {
-  Request *req = new Request(IO_TYPE_READ, data, offset, length, arg);
-  request_queue.enqueue((void*)req);
+  std::shared_ptr<Request> req = std::make_shared<Request>(IO_TYPE_READ, data, offset, length, arg);
+  request_queue.enqueue(req);
   //process_request(req);
 }
 
 void HDCSCore::aio_write (char* data, uint64_t offset, uint64_t length,  void* arg) {
-  Request *req = new Request(IO_TYPE_WRITE, data, offset, length, arg);
+  std::shared_ptr<Request> req = std::make_shared<Request>(IO_TYPE_WRITE, data, offset, length, arg);
   //TODO: add TS;
-  request_queue.enqueue((void*)req);
+  request_queue.enqueue(req);
   //process_request(req);
 }
 
