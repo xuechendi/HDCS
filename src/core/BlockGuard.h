@@ -77,6 +77,7 @@ public:
       },shared_comp_count, false);
     }
 
+    std::shared_ptr<AioCompletion> shared_comp(comp);
     std::lock_guard<std::mutex> lock(block_map_lock);
     while(left) {
       block_id = offset / block_size;
@@ -87,7 +88,7 @@ public:
                           (block_size - offset_by_block):left;
       block_request_list->emplace_back(std::move(BlockRequest(
                                        data_ptr, offset_by_block,
-                                       length_by_block, req, block, comp)));
+                                       length_by_block, req, block, shared_comp)));
       data_ptr = req->data + length_by_block;
       left -= length_by_block;
       offset += length_by_block;

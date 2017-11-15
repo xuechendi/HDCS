@@ -136,7 +136,7 @@ void HDCSCore::process_request(std::shared_ptr<Request> req) {
   //std::mutex block_request_list_lock;
   //BlockRequestList block_request_list;
   std::lock_guard<std::mutex> lock(block_request_list_lock);
-  block_guard->create_block_requests(req, &block_request_list);
+  block_guard->create_block_requests(std::shared_ptr<Request>(req), &block_request_list);
 
   for (BlockRequestList::iterator it = block_request_list.begin(); it != block_request_list.end();) { 
     if (!it->block->in_discard_process) {
