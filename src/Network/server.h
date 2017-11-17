@@ -56,16 +56,21 @@ public:
               const boost::system::error_code& err, size_t exact_read_bytes) {
           if (!err) {
             assert(exact_read_bytes == sizeof(MsgHeader));
+            if (((MsgHeader*)buffer_)->msg_flag != 0xFFFFFFFFFFFFFFFF) {
+              printf("server reads incorrect msg_header.\n");
+              return;
+            }
             uint64_t content_size = ((MsgHeader*)buffer_)->get_data_size();
             char* data_buffer = (char*)malloc(content_size);
-            exact_read_bytes = socket_.read_some(boost::asio::buffer(data_buffer, content_size));
-            if (exact_read_bytes == content_size) {
-              cb((void*)this, std::move(std::string(data_buffer, content_size)));
-              free(data_buffer);
-              aio_read();
-            } else {
-              printf("received: %lu data, not equal to expected size: %lu\n", exact_read_bytes, content_size);
+            uint64_t left = content_size;
+            while (left) {
+              exact_read_bytes = socket_.read_some(boost::asio::buffer(&data_buffer[content_size-left], left));
+              left -= exact_read_bytes;
             }
+            
+            cb((void*)this, std::move(std::string(data_buffer, content_size)));
+            free(data_buffer);
+            aio_read();
           }
       });
     }

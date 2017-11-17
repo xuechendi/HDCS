@@ -79,8 +79,8 @@ int SimpleBlockStore::close_fd(int fd) {
 
 int SimpleBlockStore::load_mmap(void** mmappedData, uint64_t size, int fd) {
   // skip disk access
-  *mmappedData = malloc(size);
-  return 0;
+  /**mmappedData = malloc(size);
+  return 0;*/
   *mmappedData = ::mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE, fd, 0);
   if (*mmappedData != MAP_FAILED) {
     return 0;
@@ -91,7 +91,7 @@ int SimpleBlockStore::load_mmap(void** mmappedData, uint64_t size, int fd) {
 
 int SimpleBlockStore::block_write(uint64_t block_id, char* data) {
   /* skip disk access */
-  return 0;
+  //return 0;
   int ret = ::pwrite(data_store_fd, data, block_size, block_id * block_size); 
   if (ret < 0) {
     log_err("[ERROR] SimpleBlockStore::block_write, unable to write block %lu, error: %s ", block_id, std::strerror(ret));
@@ -102,7 +102,7 @@ int SimpleBlockStore::block_write(uint64_t block_id, char* data) {
 
 int SimpleBlockStore::block_read(uint64_t block_id, char* data) {
   /* skip disk access */
-  return 0;
+  //return 0;
   int ret = ::pread(data_store_fd, data, block_size, block_id * block_size); 
   if (ret < 0) {
     log_err("[ERROR] SimpleBlockStore::block_read, unable to read block %lu, error: %s ", block_id, std::strerror(ret));
