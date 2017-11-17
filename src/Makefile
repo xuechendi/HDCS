@@ -65,9 +65,9 @@ $(CONTROLLER): core/policy/CachePolicy.o core/policy/TierPolicy.o $(COMMON_OBJEC
 #	${CXX} ${CXXFLAGS} ${INCS} -DTIER_POLICY core/policy/TierPolicy.cpp core/HDCSCore.cpp HDCSController.cpp HDCS.cpp -o $@ $^ ${PLATFORM_LDFLAGS}
 endif
 
-$(DIST_LIB):
+$(DIST_LIB): core/policy/CachePolicy.o core/policy/TierPolicy.o $(COMMON_OBJECTS) $(RBD_OBJECTS)
 	mkdir -p lib
-	${CXX} ${CXXFLAGS} ${INCS} libhdcs.c -shared -o $@ $^ ${PLATFORM_LDFLAGS}
+	${CXX} ${CXXFLAGS} ${INCS} -DCACHE_POLICY -DTIER_POLICY libhdcs.c core/HDCSCore.cpp -shared -o $@ $^ ${PLATFORM_LDFLAGS}
 
 $(TEST_TOOL):
 	${CXX} ${CXXFLAGS} ${INCS} test.c -o $@ $^ -Llib -lhdcs

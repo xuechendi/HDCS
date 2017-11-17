@@ -42,6 +42,7 @@ namespace core {
     class WordDelimitedBy : public std::string {};
     std::mutex replication_core_map_mutex;
     hdcs_replica_nodes_t replication_core_map;
+    bool cache_policy_mode;
 
     void process();
     void process_request(std::shared_ptr<Request> req);

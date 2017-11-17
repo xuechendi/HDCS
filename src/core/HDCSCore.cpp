@@ -32,7 +32,7 @@ HDCSCore::HDCSCore(std::string name, std::string config_name) {
   hdcs_op_threads = new TWorkQueue( hdcs_thread_max );
   uint64_t total_size = stoull(config->configValues["total_size"]);
   uint64_t block_size = stoull(config->configValues["cache_min_alloc_size"]);
-  bool cache_policy_mode = config->configValues["policy_mode"].compare(std::string("cache")) == 0 ? true : false;
+  cache_policy_mode = config->configValues["policy_mode"].compare(std::string("cache")) == 0 ? true : false;
 
   std::string path = config->configValues["cache_dir_run"];
   std::string pool_name = config->configValues["rbd_pool_name"];
@@ -89,9 +89,8 @@ HDCSCore::~HDCSCore() {
 }
 
 void HDCSCore::close() {
-#if defined(CACHE_POLICY)
-  policy->flush_all();
-#endif
+  if (cache_policy_mode)
+    policy->flush_all();
 }
 
 void HDCSCore::promote_all() {
