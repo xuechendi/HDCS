@@ -84,6 +84,7 @@ HDCSCore::~HDCSCore() {
   }
   delete policy;
   delete block_guard;
+  main_thread->join();
   delete main_thread;
 }
 
@@ -167,7 +168,7 @@ void HDCSCore::map_block(BlockRequest &&block_request) {
   }
   block->block_mutex.unlock();
   if (do_process) {
-    hdcs_op_threads->add_task(std::bind(&BlockOp::send, block_ops_head));
+    hdcs_op_threads->add_task(std::bind(&BlockOp::send, block_ops_head, nullptr));
     //block_ops_head->send();
   }
 }

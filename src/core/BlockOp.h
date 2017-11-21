@@ -33,14 +33,14 @@ public:
     if (r < 0) {
       log_print("Block complete before expected, block: %lu", block->block_id);
       block_request->complete(r);
+      delete this;
     } else {
       if (block_op_next != nullptr) {
-        block_op_next->send();
+        block_op_next->send(this);
       }
     }
-    delete this;
   }
-  virtual void send() = 0;
+  virtual void send(BlockOp* prev_block_op = nullptr) = 0;
   Block* block;
   BlockRequest* block_request;
   BlockOp* block_op_next;
@@ -53,7 +53,10 @@ public:
                        block_request_inst(block_request),
                        BlockOp(block, &block_request_inst, block_op) {
   }
-  void send() {
+  void send(BlockOp* prev_block_op = nullptr) {
+    if (prev_block_op) {
+      delete prev_block_op;
+    }
     complete(0);
   }
   void complete(int r) {
@@ -70,12 +73,12 @@ public:
     if(call_next) {
       log_print("Continue to do next request block: %lu", block->block_id);
       block_request->complete(r);
-      block_op_next->send();
+      block_op_next->send(this);
     } else {
       log_print("Complete block: %lu", block->block_id);
       block_request->complete(r);
+      delete this;
     }
-    delete this;
   }
   BlockRequest block_request_inst;
 };
@@ -87,7 +90,10 @@ public:
                    BlockOp(block, block_request, block_op),
                    block_buffer(block_buffer) {
   }
-  void send() {
+  void send(BlockOp* prev_block_op = nullptr) {
+    if (prev_block_op) {
+      delete prev_block_op;
+    }
     free(block_buffer);
     complete(0);
   }
@@ -101,7 +107,10 @@ public:
                  BlockOp(block, block_request, block_op),
                  block_buffer(block_buffer) {
   }
-  void send() {
+  void send(BlockOp* prev_block_op = nullptr) {
+    if (prev_block_op) {
+      delete prev_block_op;
+    }
     log_print("ReadFromBuffer block: %lu", block->block_id);
     memcpy(block_request->data_ptr, block_buffer+block_request->offset, block_request->size);
     complete(0);
@@ -116,7 +125,10 @@ public:
                  BlockOp(block, block_request, block_op),
                  block_buffer(block_buffer) {
   }
-  void send() {
+  void send(BlockOp* prev_block_op = nullptr) {
+    if (prev_block_op) {
+      delete prev_block_op;
+    }
     log_print("WriteToBuffer block: %lu", block->block_id);
     memcpy(block_buffer+block_request->offset, block_request->data_ptr, block_request->size);
     complete(0);
@@ -133,7 +145,10 @@ public:
                           data(data),
                           back_store(back_store) {
   }
-  void send() {
+  void send(BlockOp* prev_block_op = nullptr) {
+    if (prev_block_op) {
+      delete prev_block_op;
+    }
     log_print("PromoteBlockFromBackend block: %lu", block->block_id);
     uint64_t block_id = block->block_id;
     int ret = back_store->block_read(block_id, data);
@@ -152,7 +167,10 @@ public:
                       data(data),
                       back_store(back_store) {
   } 
-  void send() {
+  void send(BlockOp* prev_block_op = nullptr) {
+    if (prev_block_op) {
+      delete prev_block_op;
+    }
     log_print("WriteBlockToBackend block: %lu", block->block_id);
     //back_store->block_aio_wrire(block->block_id, block_request->data_ptr, this);
     int ret = back_store->block_write(block->block_id, data);
@@ -171,7 +189,10 @@ public:
                       data(data),
                       back_store(back_store) {
   } 
-  void send() {
+  void send(BlockOp* prev_block_op = nullptr) {
+    if (prev_block_op) {
+      delete prev_block_op;
+    }
     log_print("PromoteFromBackend block: %lu", block->block_id);
     //back_store->block_aio_wrire(block->block_id, block_request->data_ptr, this);
     uint64_t offset = block->block_id * block->block_size + block_request->offset;
@@ -191,7 +212,10 @@ public:
                       data(data),
                       back_store(back_store) {
   } 
-  void send() {
+  void send(BlockOp* prev_block_op = nullptr) {
+    if (prev_block_op) {
+      delete prev_block_op;
+    }
     log_print("WriteToBackend block: %lu", block->block_id);
     uint64_t offset = block->block_id * block->block_size + block_request->offset;
     int ret = back_store->write(data, offset, block_request->size);
@@ -213,7 +237,10 @@ public:
                      data(data),
                      data_store(data_store) {
   }
-  void send() {
+  void send(BlockOp* prev_block_op = nullptr) {
+    if (prev_block_op) {
+      delete prev_block_op;
+    }
     log_print("ReadBlockFromCache block: %lu", block->block_id);
     int ret = data_store->block_read(entry_id, data);
     complete(ret);
@@ -236,7 +263,10 @@ public:
                     data(data),
                     data_store(data_store) {
   }
-  void send() {
+  void send(BlockOp* prev_block_op = nullptr) {
+    if (prev_block_op) {
+      delete prev_block_op;
+    }
     log_print("WriteBlockToCache block: %lu", block->block_id);
     //int ret = 0;
     int ret = data_store->block_write(entry_id, data);
@@ -254,7 +284,10 @@ public:
                     BlockOp(block, block_request, block_op),
                     entry_id(entry_id), data_store(data_store) {
   }
-  void send() {
+  void send(BlockOp* prev_block_op = nullptr) {
+    if (prev_block_op) {
+      delete prev_block_op;
+    }
     log_print("DemoteBlockToCache block: %lu", block->block_id);
     int ret = data_store->block_discard(entry_id);
     complete(ret);
@@ -270,7 +303,10 @@ public:
                     BlockOp(block, block_request, block_op),
                     back_store(back_store) {
   }
-  void send() {
+  void send(BlockOp* prev_block_op = nullptr) {
+    if (prev_block_op) {
+      delete prev_block_op;
+    }
     log_print("DemoteBlockToCache block: %lu", block->block_id);
     int ret = back_store->block_discard(block->block_id);
     complete(ret);
@@ -286,7 +322,10 @@ public:
                  status_data(status_data), status(status),
                  data_store(data_store), 
                  BlockOp(block, block_request, block_op) {}
-  void send() {
+  void send(BlockOp* prev_block_op = nullptr) {
+    if (prev_block_op) {
+      delete prev_block_op;
+    }
     log_print("UpdateTierMeta block: %lu", block->block_id);
     *status = status_data;
     data_store->block_meta_update(block->block_id, *status);  
@@ -307,7 +346,10 @@ public:
                BlockOp(block, block_request, block_op),
                data_store(data_store) {
   }
-  void send() {
+  void send(BlockOp* prev_block_op = nullptr) {
+    if (prev_block_op) {
+      delete prev_block_op;
+    }
     log_print("UpdateToMeta block: %lu", block->block_id);
     assert(entry_id <= MAX_BLOCK_ID);
     if (status != nullptr) {
@@ -329,7 +371,10 @@ public:
             BlockOp* block_op) :
             BlockOp(block, block_request, block_op){
   }
-  void send() {
+  void send(BlockOp* prev_block_op = nullptr) {
+    if (prev_block_op) {
+      delete prev_block_op;
+    }
     log_print("DoNothing block: %lu", block->block_id);
     complete(0);
   }
@@ -348,7 +393,10 @@ public:
             timeout_comp_def(timeout_comp_def), entry(entry),
             BlockOp(block, block_request, block_op) {
   }
-  void send() {
+  void send(BlockOp* prev_block_op = nullptr) {
+    if (prev_block_op) {
+      delete prev_block_op;
+    }
     log_print("UpdateLRU block: %lu", block->block_id);
     if (status == nullptr) {
       clean_lru->remove(block);
@@ -403,7 +451,10 @@ public:
                   entry_timeout_comp_ptr(entry_timeout_comp_ptr),
                   BlockOp(block, block_request, block_op){
   }
-  void send() {
+  void send(BlockOp* prev_block_op = nullptr) {
+    if (prev_block_op) {
+      delete prev_block_op;
+    }
     log_print("ResetCacheEntry block: %lu", block->block_id);
     *status = UNPROMOTED;
     *entry_timeout_comp_ptr = nullptr;
@@ -422,7 +473,10 @@ public:
   ReleaseDiscardBlock(Block* block, BlockRequest* block_request, BlockOp* block_op) :
                       BlockOp(block, block_request, block_op){
   }
-  void send() {
+  void send(BlockOp* prev_block_op = nullptr) {
+    if (prev_block_op) {
+      delete prev_block_op;
+    }
     log_print("ReleaseDiscardBlock block: %lu", block->block_id);
     block->block_mutex.lock();
     block->in_discard_process = false;
@@ -447,7 +501,10 @@ public:
                      data_store(data_store),
                      back_store(back_store) {
   }
-  void send() {
+  void send(BlockOp* prev_block_op = nullptr) {
+    if (prev_block_op) {
+      delete prev_block_op;
+    }
     log_print("FlushBlockToBackend block: %lu", block->block_id);
     ssize_t ret = 0;
     if (status != nullptr & *status == PROMOTED_UNFLUSHED) {
@@ -467,20 +524,23 @@ private:
 
 class WaitForAioCompletion : public BlockOp{
 public:
-  WaitForAioCompletion(std::shared_ptr<AioCompletion> comp,
+  WaitForAioCompletion(const std::shared_ptr<AioCompletion> &comp,
                      Block* block,
                      BlockRequest* block_request,
                      BlockOp* block_op) :
                      BlockOp(block, block_request, block_op),
                      comp(comp) {
   }
-  void send() {
+  void send(BlockOp* prev_block_op = nullptr) {
+    if (prev_block_op) {
+      delete prev_block_op;
+    }
     comp->complete(0);
     comp->wait_for_complete();
     complete(0);
   }
 private:
-  std::shared_ptr<AioCompletion> comp;
+  const std::shared_ptr<AioCompletion> &comp;
 };
 } //core
 
