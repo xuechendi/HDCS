@@ -61,8 +61,8 @@ BlockOp* TierPolicy::map(BlockRequest &&block_request, BlockOp** block_op_end) {
                                       block, block_request_ptr, block_op);
         block_op = new DemoteBlockBuffer(block_buffer, block, block_request_ptr, block_op);
         block_op = new ReadFromBuffer(block_buffer, block, block_request_ptr, block_op);
-        block_op = new WriteBlockToCache(block_id, block_buffer, data_store,
-                                         block, block_request_ptr, block_op); 
+        block_op = new ExecuteDataStoreRequest(block_id, block_buffer, data_store,
+                                               block, block_request_ptr, block_op);
         block_op = new PromoteBlockFromBackend(block_buffer, back_store,
                                                block, block_request_ptr, block_op); 
       } else {
@@ -86,46 +86,39 @@ BlockOp* TierPolicy::map(BlockRequest &&block_request, BlockOp** block_op_end) {
                                    data_store, block, block_request_ptr, block_op);
       if (block->entry == UNPROMOTED) {
         if (block_request_ptr->size < block->block_size) {
-        posix_memalign((void**)&block_buffer, 4096, block->block_size);
-        block_op = new DemoteBlockBuffer(block_buffer, block, block_request_ptr, block_op);
-        block_op = new WriteBlockToCache(block_id, block_buffer, data_store,
-                                         block, block_request_ptr, block_op); 
-
-        if (block_request_ptr->comp) {
-          block_op = new WaitForAioCompletion(block_request_ptr->comp, block, block_request_ptr, block_op);
-        }
-
-        block_op = new WriteToBuffer(block_buffer, block, block_request_ptr, block_op);
-        block_op = new PromoteBlockFromBackend(block_buffer, back_store,
-                                               block, block_request_ptr, block_op); 
+          // partial write
+          posix_memalign((void**)&block_buffer, 4096, block->block_size);
+          block_op = new DemoteBlockBuffer(block_buffer, block, block_request_ptr, block_op);
+  
+          // todo
+          block_op = new ExecuteDataStoreRequest(block_id, block_buffer, data_store, 
+                                                 block, block_request_ptr, block_op);
+  
+          block_op = new WriteToBuffer(block_buffer, block, block_request_ptr, block_op);
+          block_op = new PromoteBlockFromBackend(block_buffer, back_store,
+                                                 block, block_request_ptr, block_op); 
         } else {
           // full block write
-          block_op = new WriteBlockToCache(block_id, block_request_ptr->data_ptr, data_store,
-                                           block, block_request_ptr, block_op);
-          if (block_request_ptr->comp) {
-            block_op = new WaitForAioCompletion(block_request_ptr->comp, block, block_request_ptr, block_op);
-          }
+          // todo
+          block_op = new ExecuteDataStoreRequest(block_id, block_request_ptr->data_ptr, data_store,
+                                                 block, block_request_ptr, block_op);
         }
       } else {
         if (block_request_ptr->size < block->block_size) {
           // partial write
           posix_memalign((void**)&block_buffer, 4096, block->block_size);
           block_op = new DemoteBlockBuffer(block_buffer, block, block_request_ptr, block_op);
-          block_op = new WriteBlockToCache(block_id, block_buffer, data_store,
-                                           block, block_request_ptr, block_op); 
-          if (block_request_ptr->comp) {
-            block_op = new WaitForAioCompletion(block_request_ptr->comp, block, block_request_ptr, block_op);
-          }
+          // todo
+          block_op = new ExecuteDataStoreRequest(block_id, block_buffer, data_store,
+                                                 block, block_request_ptr, block_op);
           block_op = new WriteToBuffer(block_buffer, block, block_request_ptr, block_op);
           block_op = new ReadBlockFromCache(block_id, block_buffer,
                                             data_store, block, block_request_ptr, block_op); 
         } else {
           // full block write
-          block_op = new WriteBlockToCache(block_id, block_request_ptr->data_ptr, data_store,
-                                           block, block_request_ptr, block_op);
-          if (block_request_ptr->comp) {
-            block_op = new WaitForAioCompletion(block_request_ptr->comp, block, block_request_ptr, block_op);
-          }
+          // todo
+          block_op = new ExecuteDataStoreRequest(block_id, block_request_ptr->data_ptr, data_store, 
+                                                 block, block_request_ptr, block_op);
         }
       }
       break;

@@ -127,5 +127,25 @@ int SimpleBlockStore::block_meta_update(uint64_t block_id, BLOCK_STATUS_TYPE sta
 BLOCK_STATUS_TYPE SimpleBlockStore::get_block_meta(uint64_t block_id) {
   return meta_store_mmap[block_id];
 }
+
+int SimpleBlockStore::write(char* data, uint64_t offset, uint64_t size) {
+  /* skip disk access */
+  int ret = ::pwrite(data_store_fd, data, size, offset); 
+  if (ret < 0) {
+    log_err("[ERROR] SimpleBlockStore::write, unable to write offset %lu, size %lu, error: %s ", offset, size, std::strerror(ret));
+    return ret;
+  }
+  return ret;
+}
+
+int SimpleBlockStore::read(char* data, uint64_t offset, uint64_t size) {
+  /* skip disk access */
+  int ret = ::pread(data_store_fd, data, size, offset); 
+  if (ret < 0) {
+    log_err("[ERROR] SimpleBlockStore::read, unable to read offset %lu, size %lu, error: %s ", offset, size, std::strerror(ret));
+    return ret;
+  }
+}
+
 }// store
 }// hdcs

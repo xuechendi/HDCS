@@ -13,8 +13,8 @@ namespace store {
     SimpleBlockStore(std::string store_path, uint64_t total_size, uint64_t store_size, uint64_t block_size);
     ~SimpleBlockStore();
 
-    int write(char* data, uint64_t offset, uint64_t size){}
-    int read(char* data, uint64_t offset, uint64_t size){}
+    int write(char* data, uint64_t offset, uint64_t size);
+    int read(char* data, uint64_t offset, uint64_t size);
     int aio_write(char* data, uint64_t offset, uint64_t size, AioCompletion* on_finish){}
     int aio_read(char* data, uint64_t offset, uint64_t size, AioCompletion* on_finish){}
     int block_write(uint64_t block_id, char* data);

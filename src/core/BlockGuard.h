@@ -46,36 +46,13 @@ public:
     char* data_ptr = req->data;
     Block* block;
     uint64_t block_id;
-    AioCompletion* replica_write_comp;
-    //std::shared_ptr<AioCompletion> comp;
-    std::shared_ptr<AioCompletion> comp;
 
     uint64_t tmp_length = (length + (offset % block_size));
-    int shared_comp_count = tmp_length % block_size == 0 ? 0 : 1;
-    shared_comp_count += tmp_length / block_size;
+    int shared_count = tmp_length % block_size == 0 ? 0 : 1;
+    shared_count += tmp_length / block_size;
 
-    /*aio_completion when replica write completed*/
-    if (replica_size) {
-      AioCompletion* original_req_comp = req->comp;
-      replica_write_comp = new AioCompletionImp([original_req_comp](ssize_t r){
-        original_req_comp->complete(r);
-      }, (replica_size + 1));
-      req->comp = replica_write_comp;
-
-      /*aio_completion when shared_op synced.*/
-      comp = std::make_shared<AioCompletionImp>([this, offset, length, data_ptr, replica_write_comp](ssize_t r){
-        void* io_ctx;
-        for (const auto& replica_node : connection_v) {
-          io_ctx = replica_node.second;
-          hdcs::HDCS_REQUEST_CTX msg_content(HDCS_WRITE, ((hdcs_ioctx_t*)io_ctx)->hdcs_inst, replica_write_comp, offset, length, data_ptr);
-          ((hdcs_ioctx_t*)io_ctx)->conn->aio_communicate(std::move(std::string(msg_content.data(), msg_content.size())));
-        }
-      }, (shared_comp_count), false);
-    } else {
-      /*aio_completion when shared_op synced.*/
-      comp = std::make_shared<AioCompletionImp>([this](ssize_t r){
-      },shared_comp_count, false);
-    }
+    std::shared_ptr<store::DataStoreRequest> data_store_req = std::make_shared<store::DataStoreRequest>(
+        shared_count, replica_size, block_size, &connection_v);
 
     std::shared_ptr<AioCompletion> shared_comp(comp);
     std::lock_guard<std::mutex> lock(block_map_lock);
@@ -88,8 +65,8 @@ public:
                           (block_size - offset_by_block):left;
       block_request_list->emplace_back(std::move(BlockRequest(
                                        data_ptr, offset_by_block,
-                                       length_by_block, req, block, shared_comp)));
-      data_ptr = req->data + length_by_block;
+                                       length_by_block, req, block, data_store_req)));
+      data_ptr += length_by_block;
       left -= length_by_block;
       offset += length_by_block;
     }

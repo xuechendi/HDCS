@@ -23,8 +23,8 @@ public:
   void complete(ssize_t r) {
     if (defined) {
       if (--shared_count == 0) {
-        cond.notify_all();
         Callback(r);
+        cond.notify_all();
         if (delete_when_complete) delete this;
       }
     } else {

@@ -542,6 +542,29 @@ public:
 private:
   const std::shared_ptr<AioCompletion> &comp;
 };
+
+class ExecuteDataStoreRequest : public BlockOp{
+public:
+  ExecuteDataStoreRequest(uint64_t entry_id, char* data,
+                     store::DataStore* data_store,
+                     Block* block,
+                     BlockRequest* block_request,
+                     BlockOp* block_op) :
+                     BlockOp(block, block_request, block_op),
+                     entry_id(entry_id), data(data), data_store(data_store) {
+  }
+  void send(BlockOp* prev_block_op = nullptr) {
+    if (prev_block_op) {
+      delete prev_block_op;
+    }
+    block_request->data_store_req->prepare_request(data_store, entry_id, data);
+    complete(0);
+  }
+private:
+  uint64_t entry_id;
+  char* data;
+  store::DataStore* data_store;
+};
 } //core
 
 } //hdcs
