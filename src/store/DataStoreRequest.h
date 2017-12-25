@@ -93,12 +93,12 @@ typedef std::map<uint64_t, std::pair<uint64_t, char*> > data_store_request_chain
         data_ptr = it->second.second;
 
         //submit request to replica
-        for (const auto& replica_node : *connection_v) {
+        /*for (const auto& replica_node : *connection_v) {
           io_ctx = replica_node.second;
           hdcs::HDCS_REQUEST_CTX msg_content(HDCS_WRITE, ((hdcs_ioctx_t*)io_ctx)->hdcs_inst,
                                              replica_comp, offset, length, data_ptr);
           ((hdcs_ioctx_t*)io_ctx)->conn->aio_communicate(std::move(std::string(msg_content.data(), msg_content.size())));
-        }
+        }*/
 
         //submit request to local
         //print_buffer_size = strlen(print_buffer);

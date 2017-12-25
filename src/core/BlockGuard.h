@@ -64,7 +64,6 @@ public:
     std::shared_ptr<store::DataStoreRequest> data_store_req = std::make_shared<store::DataStoreRequest>(
         shared_count, block_size, replica_write_comp, &connection_v);
 
-    std::shared_ptr<AioCompletion> shared_comp(comp);
     std::lock_guard<std::mutex> lock(block_map_lock);
     while(left) {
       block_id = offset / block_size;
