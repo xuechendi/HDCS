@@ -51,8 +51,18 @@ public:
     int shared_count = tmp_length % block_size == 0 ? 0 : 1;
     shared_count += tmp_length / block_size;
 
+    //create replication complete if needed.
+    AioCompletion* replica_write_comp = nullptr;
+    if (replica_size) {
+      AioCompletion* original_req_comp = req->comp;
+      replica_write_comp = new AioCompletionImp([original_req_comp](ssize_t r){
+        original_req_comp->complete(r);
+      }, (replica_size + 1));
+      req->comp = replica_write_comp;
+    }
+
     std::shared_ptr<store::DataStoreRequest> data_store_req = std::make_shared<store::DataStoreRequest>(
-        shared_count, replica_size, block_size, &connection_v);
+        shared_count, block_size, replica_write_comp, &connection_v);
 
     std::shared_ptr<AioCompletion> shared_comp(comp);
     std::lock_guard<std::mutex> lock(block_map_lock);

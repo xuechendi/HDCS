@@ -16,13 +16,11 @@ typedef std::map<uint64_t, std::pair<uint64_t, char*> > data_store_request_chain
 
   class DataStoreRequest {
   public:
-    DataStoreRequest(uint8_t shared_count, uint8_t replica_size,
-                     uint64_t block_size, hdcs_replica_nodes_t* connection_v):
-      shared_count(shared_count), data_store(nullptr),
+    DataStoreRequest(uint8_t shared_count, uint64_t block_size,
+                     AioCompletion* replica_comp,
+                     hdcs_replica_nodes_t* connection_v):
+      shared_count(shared_count), data_store(nullptr), replica_comp(replica_comp),
       block_size(block_size), connection_v(connection_v){
-        //create comp for replication request
-        replica_write_comp = new AioCompletionImp([](ssize_t r){}, replica_size + 1);
-
         //create comp for prepare_data_store_req.
         data_store_comp = std::make_shared<AioCompletionImp>([&](ssize_t r){
           submit_request();
@@ -98,8 +96,8 @@ typedef std::map<uint64_t, std::pair<uint64_t, char*> > data_store_request_chain
         for (const auto& replica_node : *connection_v) {
           io_ctx = replica_node.second;
           hdcs::HDCS_REQUEST_CTX msg_content(HDCS_WRITE, ((hdcs_ioctx_t*)io_ctx)->hdcs_inst,
-                                             replica_write_comp, offset, length, data_ptr);
-          //((hdcs_ioctx_t*)io_ctx)->conn->aio_communicate(std::move(std::string(msg_content.data(), msg_content.size())));
+                                             replica_comp, offset, length, data_ptr);
+          ((hdcs_ioctx_t*)io_ctx)->conn->aio_communicate(std::move(std::string(msg_content.data(), msg_content.size())));
         }
 
         //submit request to local
@@ -107,11 +105,12 @@ typedef std::map<uint64_t, std::pair<uint64_t, char*> > data_store_request_chain
         //sprintf(&print_buffer[print_buffer_size], "  DataStore %p write %p to %lu(%lu)\n", data_store, data_ptr, offset, length);
         ret = data_store->write(data_ptr, offset, length);
         if (ret < 0) {
-          replica_write_comp->complete(ret);
+          log_err("data_store->write failed\n");
+          return ret;
         }
       }
       //printf("%s", print_buffer);
-      replica_write_comp->complete(ret);
+      return ret;
     }
 
   private:
@@ -120,12 +119,12 @@ typedef std::map<uint64_t, std::pair<uint64_t, char*> > data_store_request_chain
 
     std::mutex data_store_mutex;
     std::shared_ptr<AioCompletion> data_store_comp;
-    AioCompletion* replica_write_comp;
     uint8_t shared_count;
     DataStore* data_store;
     IO_TYPE io_type;
     uint64_t block_size;
     hdcs_replica_nodes_t* connection_v;
+    AioCompletion* replica_comp;
 
   };
 }// store
