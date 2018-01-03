@@ -25,7 +25,9 @@ HDCSCore::HDCSCore(std::string name, std::string cfg_file, struct hdcs_repl_opti
   }
 
   int hdcs_thread_max = stoi(config->configValues["op_threads_num"]);
-  hdcs_op_threads = new TWorkQueue( hdcs_thread_max );
+  for (int i = 0; i < 4; i++) {
+    hdcs_op_threads[i] = new TWorkQueue( hdcs_thread_max );
+  }
   uint64_t total_size = stoull(config->configValues["total_size"]);
   uint64_t block_size = stoull(config->configValues["cache_min_alloc_size"]);
   bool cache_policy_mode = config->configValues["policy_mode"].compare(std::string("cache")) == 0 ? true : false;
@@ -69,7 +71,7 @@ HDCSCore::HDCSCore(std::string name, std::string cfg_file, struct hdcs_repl_opti
 HDCSCore::~HDCSCore() {
   go = false;
   main_thread->join();
-  delete hdcs_op_threads;
+  delete[] hdcs_op_threads;
   for (auto& hdcs_replica : replication_core_map) {
     ((hdcs_ioctx_t*)hdcs_replica.second)->conn->close();
     free((hdcs_ioctx_t*)hdcs_replica.second);
@@ -160,7 +162,9 @@ void HDCSCore::map_block(BlockRequest &&block_request) {
   }
   block->block_mutex.unlock();
   if (do_process) {
-    hdcs_op_threads->add_task(std::bind(&BlockOp::send, block_ops_head, nullptr));
+    uint8_t tp_index = block->block_id/(block_guard->get_block_count()/4);
+    //printf("tp_index is %u\n", tp_index);
+    hdcs_op_threads[tp_index]->add_task(std::bind(&BlockOp::send, block_ops_head, nullptr));
     //block_ops_head->send();
   }
 }

@@ -29,7 +29,7 @@ namespace core {
     void aio_read (char* data, uint64_t offset, uint64_t length, void* c);
     void aio_write (char* data, uint64_t offset, uint64_t length, void* c);
   private:
-    TWorkQueue *hdcs_op_threads;
+    TWorkQueue *hdcs_op_threads[4];
     std::thread *main_thread;
     bool go;
     Config *config;
