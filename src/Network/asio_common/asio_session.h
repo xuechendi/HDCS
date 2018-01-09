@@ -28,13 +28,13 @@ public:
     {}
 
     ~asio_session(){
-        close();
+        stop();
         if(role==1 && session_arg_ptr!=NULL){
             delete session_arg_ptr;
         }
     }
 
-    void close(){
+    void stop(){
         m_messenger->close();
     }
 

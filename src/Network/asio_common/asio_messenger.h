@@ -15,6 +15,7 @@
 #include "../common/networking_common.h"
 #include "../io_service/thread_group.h"
 #include "../common/wait_event.h"
+#include "../common/counter.h"
 //#include "asio_session.h"
 
 namespace hdcs{
@@ -68,6 +69,13 @@ private:
     std::atomic<bool> async_receive_loop;
     std::mutex async_receive_loop_mutex;
     std::map<uint64_t,MsgController*> pending_msg_map; 
+    enum {
+        STATUS_INIT = 0,
+        STATUS_CONNECTING = 1,
+        STATUS_CONNECTED =2,
+        STATUS_CLOSED = 3,
+    };
+    volatile int _status;
     //ThreadGroup thread_worker; // post hdcs_handle_request into other io_service.
 
 public:
@@ -80,6 +88,7 @@ public:
         , resolver_(ios)
         , role(_role) // 0 is client, and 1 is server
         , async_receive_loop(false)
+        , _status(STATUS_INIT)
         //, thread_worker(5)
     {
 
@@ -125,19 +134,19 @@ public:
     }
 
     void close(){
-        if(is_closed){
-            return;
-        }
-        boost::system::error_code ec;
-        socket_.close(ec);
-        if(ec){
-            std::cout<<"asio_messenger::close, close failed: "<<ec.message()<<std::endl;
-            assert(0);
+        // just can be called only once.
+        if(atomic_swap( &_status, (int)STATUS_CLOSED) != STATUS_CLOSED ){
+            boost::system::error_code ec;
+            socket_.shutdown(tcp::socket::shutdown_both, ec);
+            if(ec){
+                std::cout<<"close() failed: "<<ec.message()<<std::endl;
+            }
         }
     }
 
     boost::asio::ip::tcp::socket& get_socket() {
         return socket_;
+
     }
 
     void cancel(){
@@ -154,6 +163,7 @@ public:
     }
 
     int sync_connection(std::string ip_address, std::string port, ProcessMsgClient _process_msg){
+        _status = STATUS_CONNECTING;
         boost::system::error_code ec;
         boost::asio::ip::tcp::resolver::iterator iter =
             resolver_.resolve(boost::asio::ip::tcp::resolver::query(ip_address, port), ec);
@@ -161,9 +171,13 @@ public:
             std::cout<<"asio_messenger::sync_connection, resolver failed: "<<ec.message()<<std::endl;
             assert(0);
         }
+        _status = STATUS_CONNECTED;
         endpoint_ = *iter;
         socket_.connect(endpoint_, ec);
         if(ec){
+            if(ec == boost::asio::error::operation_aborted){
+                return 0;
+            }
             std::cout<<"asio_messenger::sync_connection, connect  failed: "<<ec.message()<<std::endl;
             assert(0);
         }
@@ -194,7 +208,7 @@ public:
         send_lock.unlock();
         if(ec){
             std::cout<<"asio_messenger::sync_send failed: "<<ec.message()<<std::endl;
-            assert(0);
+            close();
         }
         if(ret != send_bytes){
             std::cout<<"asio_messenger::sync_send failed: ret != send_bytes "<<std::endl;
@@ -221,6 +235,7 @@ public:
                     }
                 }else{
                     std::cout<<"asio_session::aync_send failed: "<<ec.message()<<std::endl;
+                    close();
                 }
                 delete send_string;
             });
@@ -290,6 +305,7 @@ public:
                     }
                 }else{
                     std::cout<<"asio_session::aync_send failed: "<<ec.message()<<std::endl;
+                    close();
                 }
             });
     }
@@ -329,12 +345,18 @@ public:
                                 }
 				//thread_worker.post(boost::bind(c_process_msg, callback_arg, std::move(std::string(data_buffer,content_size))));
                             }else{ 
-                                // TODO error handing 
+                                if(err != boost::asio::error::eof){
+                                    std::cout<<"asio_messenger::aio_receive firstly receiving failed: "<<err.message()<<std::endl;
+                                }
+                                close();
                             }
  			    delete[] data_buffer;
                         });
                }else{ 
-                   // TODO error handing 
+                   if(err != boost::asio::error::eof){
+                       std::cout<<"asio_message::asio_receive secondly receiving failed: "<<err.message()<<std::endl;
+                   }
+                   close();
               }
         });
     }
@@ -367,12 +389,18 @@ public:
 			        aio_receive(arg);
 				//thread_worker.post(boost::bind(s_process_msg, arg, std::move(std::string(data_buffer,content_size))));
                             }else{ 
-                                //TODO error handing
+                                if(err != boost::asio::error::eof){
+                                    std::cout<<"asio_messenger::aio_receive firstly receiving failed: "<<err.message()<<std::endl;
+                                }
+                                close();
                             }
  			    delete[] data_buffer;
                         });
                }else{ 
-                    // TODO error handing 
+                   if(err != boost::asio::error::eof){
+                       std::cout<<"asio_message::asio_receive secondly receiving failed: "<<err.message()<<std::endl;
+                   }
+                   close();
               }
         });
     }

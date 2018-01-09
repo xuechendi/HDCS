@@ -1,22 +1,29 @@
 #ifndef CONNECT
 #define CONNECT
 #include "./asio_common/asio_session.h"
-#include "./asio_common/io_pool.h"
+#include "./io_service/io_service_pool.h"
 namespace hdcs{
 namespace networking{
 
 class Connect{
 public:
     Connect(int _ios_num, int _thd_num_of_one_ios)
-        : m_io_service_pool(_ios_num, _thd_num_of_one_ios){
-        m_io_service_pool.run(false);
+        : m_io_service_pool(_ios_num, _thd_num_of_one_ios)
+    {
+        m_io_service_pool.async_run();
     }
 
     ~Connect(){
+        close();
     }
 
     int async_connect( std::string ip_address, std::string port ){
+        // TODO
         return 1;
+    }
+
+    void close(){
+        m_io_service_pool.stop();
     }
 
     SessionPtr sync_connect(std::string ip_address, std::string port, ProcessMsgClient _process_msg){

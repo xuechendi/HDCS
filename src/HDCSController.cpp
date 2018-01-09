@@ -22,7 +22,7 @@ HDCSController::HDCSController(struct hdcs_repl_options repl_opt, std::string co
   network_service = new networking::server("0.0.0.0", _port, 16, 5);
   network_service->start([&](void* p, std::string s){handle_request(p, s);});
   //network_service->wait();
-  network_service->run();
+  network_service->sync_run();
 }
 
 HDCSController::~HDCSController() {

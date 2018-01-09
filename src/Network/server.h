@@ -31,15 +31,23 @@ public:
     }
 
     void stop(){
-        is_stop.store(true);
-        acceptor_ptr->close();
-        for(auto it=session_set.begin(); it!=session_set.end(); ++it){
-            (*it)->close(); 
+        if(is_stop.load()){
+            return;
         }
+        is_stop.store(true);
+        for(auto it=session_set.begin(); it!=session_set.end(); ++it){
+            (*it)->stop(); 
+            session_set.erase(it);
+        }
+        acceptor_ptr->stop();
     }
 
-    void run(){
-        acceptor_ptr->run();
+    void sync_run(){
+        acceptor_ptr->sync_run();
+    }
+
+    void async_run(){
+        acceptor_ptr->async_run();
     }
 
     // start listen 

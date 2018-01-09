@@ -1,11 +1,11 @@
-#ifndef _SOFA_PBRPC_THREAD_GROUP_IMPL_H_
-#define _SOFA_PBRPC_THREAD_GROUP_IMPL_H_
+#ifndef THREAD_GROUP_IMPL_H_
+#define THREAD_GROUP_IMPL_H_
 
 #include <unistd.h>
 #include <pthread.h>
 #include <cstdio>
-#include <atomic>
 #include <memory>
+#include <vector>
 
 #include <boost/bind.hpp>
 #include <boost/asio.hpp>
@@ -15,38 +15,16 @@
 namespace hdcs {
 namespace networking {
 
-// Defined in this file.
 class ThreadGroupImpl;
-//typedef hdcs::networking::shared_ptr<ThreadGroupImpl> ThreadGroupImplPtr;
+typedef std::shared_ptr<ThreadGroupImpl> ThreadGroupImplPtr;
 
 class ThreadGroupImpl{
 public:
-    // baidu have this class implement.
-    typedef std::atomic<int> AtomicCounter;
-
-    struct ThreadParam{
-        int id; // sequence id in the thread group, starting from 0
-        IOService* io_service;
-        AtomicCounter init_done;
-        AtomicCounter init_fail;
-        ThreadParam() : id(0), io_service(NULL){}
-        ~ThreadParam() {}
-    }; 
-
-public:
-    ThreadGroupImpl(int thread_num, const std::string& name = "")
+    ThreadGroupImpl(int thread_num)
         : _is_running(false)
         , _thread_num(std::max(thread_num, 1))
-        , _name(name)
         , _io_service_work(NULL)
-        , _threads(NULL)
-        , _thread_params(NULL){
-        if (_name.empty()){
-            char tmp[20];
-            sprintf(tmp, "%p", this);
-            _name = tmp;
-        }
-    }
+    {}
 
     ~ThreadGroupImpl(){
         stop();
@@ -54,10 +32,6 @@ public:
 
     int thread_num() const{
         return _thread_num;
-    }
-
-    std::string name() const{
-        return _name;
     }
 
     IOService& io_service(){
@@ -71,48 +45,10 @@ public:
         }
         _is_running = true;
         _io_service_work = new IOServiceWork(_io_service);
-        _threads = new pthread_t[_thread_num];
-        _thread_params = new ThreadParam[_thread_num];
+
         for (int i = 0; i < _thread_num; ++i)
         {
-            _thread_params[i].id = i;
-            _thread_params[i].io_service = &_io_service;
-            int ret = pthread_create(&_threads[i], NULL, &ThreadGroupImpl::thread_run, &_thread_params[i]);
-            if (ret != 0)
-            {
-                std::cout<<"ThreadGroupImp::start(): failed."<<std::endl;
-                _thread_num = i;
-                stop();
-                return false;
-            }
-        }
-        // wait for all threads successfully create. 
-        bool init_fail = false;
-       /*
-        while (true){
-            int done_num = 0;
-            for (int i = 0; i < _thread_num; ++i){
-                if (_thread_params[i].init_done == 1){
-                    if (_thread_params[i].init_fail == 1){
-                        init_fail = true;
-                        break;
-                    }else{
-                        ++done_num;
-                    }
-                }
-            }
-            if (init_fail || done_num == _thread_num){
-                break;
-            }
-            //wait for some times, then check every thread.
-           // usleep(100000);
-           assert(0);
-        }
-        */
-        if (init_fail){
-            std::cout<<"ThreadGroupImpl::start: start thread group failed."<<std::endl;
-            stop();
-            return false;
+            _threads.push_back(std::thread([this](){_io_service.run();}));
         }
         return true;
     }
@@ -127,15 +63,9 @@ public:
         _io_service_work = NULL;
 
         for (int i = 0; i < _thread_num; ++i){
-            int ret = pthread_join(_threads[i], NULL);
-            if (ret != 0){
-                std::cout<<"ThreadGroupImp::stop(): join thread failed."<<std::endl;
-            }
+            // don't call io_service.stop() 
+            _threads[i].join();
         }
-        delete []_thread_params;
-        _thread_params = NULL;
-        delete []_threads;
-        _threads = NULL;
     }
 
     // Request the thread group to invoke the given handler.
@@ -157,26 +87,11 @@ public:
     }
 
 private:
-    static void* thread_run(void* param){
-        ThreadParam* thread_param = reinterpret_cast<ThreadParam*>(param);
-        // to do some init things;
-        ++thread_param->init_done;
-        // run asio
-        if (thread_param->init_fail == 0){
-            thread_param->io_service->run();
-        }
-        return NULL;
-    }
-
-private:
     volatile bool _is_running;
     int _thread_num;
-    std::string _name;
-
-    IOService _io_service;   // just one io service.
+    IOService _io_service;
     IOServiceWork* _io_service_work;
-    pthread_t* _threads; // thread vector.
-    ThreadParam* _thread_params;
+    std::vector<std::thread> _threads;
 };
 
 } 

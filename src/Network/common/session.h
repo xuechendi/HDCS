@@ -12,7 +12,7 @@ public:
     virtual ~Session(){}
 
     virtual bool start( ProcessMsg )=0;
-    virtual void close()=0;
+    virtual void stop()=0;
     virtual void cancel()=0;
     virtual void set_session_arg(void*)=0;
     

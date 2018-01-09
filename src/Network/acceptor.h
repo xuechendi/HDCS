@@ -2,7 +2,6 @@
 #define ACCEPTOR
 #include "./common/networking_common.h"
 #include "./asio_common/asio_acceptor.h"
-#include "./asio_common/io_pool.h"
 
 namespace hdcs{
 namespace networking{
@@ -21,11 +20,11 @@ public:
     }
 
     ~Acceptor(){
-        close();
+        stop();
     }
 
-    void close(){
-        asio_acceptor_impl_ptr->close();
+    void stop(){
+        asio_acceptor_impl_ptr->stop();
     }
 
     void start(ProcessMsg _process_msg){
@@ -35,11 +34,12 @@ public:
         }
     }
 
-    void run(){
-        asio_acceptor_impl_ptr->run();
-        if(false){
-            //rdma_acceptor_impl_ptr->run();
-        }       
+    void sync_run(){
+        asio_acceptor_impl_ptr->sync_run();
+    }
+
+    void async_run(){
+        asio_acceptor_impl_ptr->async_run();
     }
 }; // 
 } //

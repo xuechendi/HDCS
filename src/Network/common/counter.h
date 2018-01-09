@@ -20,6 +20,13 @@ inline T atomic_dec_ret_old64(volatile T* n)
     return r;
 }
 
+template <typename T>
+inline T atomic_swap(volatile T* lockword, T value)
+{
+    asm volatile ("lock; xchg %0, %1;" : "+r"(value), "+m"(*lockword));
+    return value;
+}
+
 class AtomicCounter64
 {
 public:

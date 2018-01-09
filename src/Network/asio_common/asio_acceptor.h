@@ -3,7 +3,7 @@
 #include <atomic>
 #include "../common/networking_common.h"
 #include "asio_session.h"
-#include "io_pool.h"
+#include "../io_service/io_service_pool.h"
 
 namespace hdcs {
 namespace networking{
@@ -21,17 +21,25 @@ public:
     }
 
     ~asio_acceptor(){
-        close();
+        stop();
     }
 
-    void close() {
+    void stop() {
         if (is_closed.load()){
             return;
         }
+        _io_service_pool.stop();
         is_closed.store(true);
         boost::system::error_code ec;
         m_acceptor.cancel(ec);
+        if(ec){
+            std::cout<<"asio_acceptor::stop(): cancel failed "<<ec.message()<<std::endl;
+        }
         m_acceptor.close(ec);
+        if(ec){
+            std::cout<<"asio_acceptor::stop(): close failed "<<ec.message()<<std::endl;
+        }
+
     }
 
     bool start( ProcessMsg _process_msg ){
@@ -71,8 +79,12 @@ public:
         return true;
     }
 
-    void run(){
-        _io_service_pool.run();
+    void sync_run(){
+        _io_service_pool.sync_run();
+    }
+
+    void async_run(){
+        _io_service_pool.async_run();
     }
 
 private:
@@ -84,6 +96,7 @@ private:
     }
 
     void on_accept(const SessionPtr new_session_ptr, const boost::system::error_code& ec){
+        // when having too many open file, should re-start listen...TODO ref baidu
         if (is_closed.load()){
             return;
         }
@@ -91,7 +104,7 @@ private:
 
         if (ec){
             std::cout<< "start_listen(): async_acceptor failed: "<<ec.message()<<std::endl;
-            close();
+            stop();
         }else{
             session_set.insert(new_session_ptr);
             new_session_ptr->set_option();

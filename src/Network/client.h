@@ -10,7 +10,6 @@
 #include <atomic>
 #include "connect.h"
 #include "common/counter.h"
-//#include "../io_service/thread_group.h"
 
 namespace hdcs{
 namespace networking{
@@ -34,29 +33,31 @@ public:
         , process_msg(_process_msg)
         , m_connect(_s_num, _thd_num)
         , _next_sequence_id(0)
-        , is_closed(true)
+        , is_closed(false)
     {}
 
     ~Connection(){
-        if(!is_closed.load()){
-            close();
-        }
+        close();
     }
 
     void close() {
+        if(is_closed.load()){
+            return;
+        }
         for(int i = 0 ; i < session_vec.size(); ++i){
-            session_vec[i]->close();
+            session_vec[i]->stop();
             delete session_vec[i];
         }
+        m_connect.close();
         is_closed.store(true);
     }
-
+/*
     void cancel(){
         for(int i = 0; i < session_vec.size(); ++i){
             session_vec[i]->cancel();
         }
     }
-    
+*/    
     void set_session_arg(void* arg){
         process_msg_arg = arg; 
         for(int i = 0; i < session_vec.size(); ++i){
@@ -76,7 +77,7 @@ public:
         }
         if( session_vec.size() == session_num ){
             std::cout<<"Networking: "<<session_vec.size()<<" sessions have been created..."<<std::endl;
-            is_closed.store(true);
+            is_closed.store(false);
         }else{
             assert(0);
         }
