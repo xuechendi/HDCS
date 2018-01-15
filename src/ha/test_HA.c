@@ -14,7 +14,7 @@ int main(int argc, char *argv[]) {
   std::string node;
   if (argv[2][0] == 'c') {
     hdcs::ha::HAClient ha_client;
-    std::shared_ptr<HDCSCoreStat> stat;
+    std::shared_ptr<hdcs::ha::HDCSCoreStat> stat;
     while (true) {
       printf("Please input your cmd(connect/add/bye/brk): ");
       std::cin >> cmd;
@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
       std::cin >> cmd;
       if (cmd.compare("bye") == 0) break;
       else if(cmd.compare("connect") == 0) {
-        printf("Please input server ip and port(ex:127.0.0.1:10001) : ");
+        printf("Please input server ip and port(ex:127.0.0.1:11001) : ");
         std::cin >> cmd;
         ha_mgr.register_hdcs_node(cmd);
       }

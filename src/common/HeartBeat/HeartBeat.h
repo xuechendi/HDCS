@@ -11,6 +11,8 @@ namespace hdcs {
 typedef uint8_t HeartBeatStat;
 #define HEARTBEAT_STAT_OK      0XE0
 #define HEARTBEAT_STAT_TIMEOUT 0XE1
+typedef uint8_t HDCS_HA_MSG_TYPE;
+#define HDCS_MSG_HEARTBEAT 0X31
 
 struct HeartBeatOpts {
   uint64_t timeout_nanoseconds;
@@ -21,12 +23,19 @@ struct HeartBeatOpts {
 };
 
 typedef uint8_t HEARTBEAT_MSG_TYPE;
+struct HDCS_HEARTBEAT_MSG_T {
+  HDCS_HA_MSG_TYPE reserved_flag;
+  HEARTBEAT_MSG_TYPE type;
+  void* hb_inst_id;
+};
 #define HDCS_HEARTBEAT_PING  0XE2
 #define HDCS_HEARTBEAT_REPLY 0XE3
 class HDCS_HEARTBEAT_MSG {
 public:
-  HDCS_HEARTBEAT_MSG (HEARTBEAT_MSG_TYPE type) {
+  HDCS_HEARTBEAT_MSG (HEARTBEAT_MSG_TYPE type, void* id) {
+    data_.reserved_flag = HDCS_MSG_HEARTBEAT;
     data_.type = type;
+    data_.hb_inst_id = id;
   }
 
   ~HDCS_HEARTBEAT_MSG() {
@@ -40,10 +49,7 @@ public:
     return sizeof(HDCS_HEARTBEAT_MSG_T);
   }
 
-private:
-  struct HDCS_HEARTBEAT_MSG_T {
-    HEARTBEAT_MSG_TYPE type;
-  } data_;
+  HDCS_HEARTBEAT_MSG_T data_;
 };
 
 class HeartBeat {
@@ -61,23 +67,21 @@ private:
 
 public:
 
-  HeartBeat(std::string addr, std::string port,
+  HeartBeat(networking::Connection* conn,
             std::shared_ptr<AioCompletion> error_handler,
             HeartBeatOpts *hb_opts,
             std::shared_ptr<SafeTimer> event_timer):
+            conn(conn),
             hb_opts(hb_opts),
             event_timer(event_timer),
             stat(HEARTBEAT_STAT_OK),
             timeout_event(nullptr),
             error_handler(error_handler) {
-    conn = new networking::Connection([&](void* p, std::string s){request_handler(p, s);}, 1, 1);
-    conn->connect(addr, port);
     heartbeat_ping();
   }
 
   ~HeartBeat() {
     event_timer->cancel_event(timeout_event);
-    conn->close();
   }
 
   void request_handler(void* args, std::string reply_data) {
@@ -92,7 +96,7 @@ public:
   void heartbeat_ping() {
     timeout_event = new AioCompletionImp([&](ssize_t r){
       // send out HeartBeat Msg
-      HDCS_HEARTBEAT_MSG msg_content(HDCS_HEARTBEAT_PING);
+      HDCS_HEARTBEAT_MSG msg_content(HDCS_HEARTBEAT_PING, this);
       conn->aio_communicate(std::move(std::string(msg_content.data(), msg_content.size())));
       //printf("Heartbeat Msg sent out.\n");
     });

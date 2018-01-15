@@ -75,10 +75,14 @@ public:
       conn->close();
   }
 
+  void set_conn (networking::Connection* new_conn) {
+    conn = new_conn;
+  }
+
   int add_listener (std::string port) {
     core_stat_listener = new networking::server("0.0.0.0", port, 1, 1);
     core_stat_listener->start([&](void* p, std::string s){request_handler(p, s);});
-    core_stat_listener->run();
+    core_stat_listener->sync_run();
     return 0;
   }
 
@@ -99,6 +103,10 @@ public:
   int unregister_core (void* hdcs_core_id) {
     hdcs_core_stat_map.erase(hdcs_core_id);
     return 0;
+  }
+
+  hdcs_core_stat_map_t* get_stat_map() {
+    return &hdcs_core_stat_map;
   }
 
   void send_stat_map() {
