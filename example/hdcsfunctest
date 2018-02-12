@@ -1,6 +1,6 @@
 mkdir -p build && cd build && rm -rf *
 cmake ../
-make uninstall && make -j && make install
+make clean && make -j && make install
 mkdir -p /etc/hdcs; cp ../example/general.conf /etc/hdcs/general.conf
 rm -rf /mnt/cache/ && mkdir -p /mnt/cache/
 killall -9 HDCS
