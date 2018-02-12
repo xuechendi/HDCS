@@ -1,3 +1,7 @@
+cd src/ha/libcrush
+bash build.sh
+ldconfig
+cd ../../../
 mkdir -p build && cd build && rm -rf *
 cmake ../
 make clean && make -j && make install
