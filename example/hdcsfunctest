@@ -9,7 +9,7 @@ mkdir -p /etc/hdcs; cp ../example/general.conf /etc/hdcs/general.conf
 rm -rf /mnt/cache/ && mkdir -p /mnt/cache/
 killall -9 HDCS
 killall hdcs-mgr
-hdcs-mgr --name HDCSManager -c ../example/general.conf
+hdcs-mgr --name HDCSManager -c ../example/general.conf &
 HDCS --name host02       -r master -c general.conf &
 HDCS --name host02_slave -r slave -c general.conf &
 HDCS --name host03       -r master -c general.conf &
