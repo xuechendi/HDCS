@@ -179,7 +179,8 @@ private:
 
     int result_len;
     bool do_reset = true;
-    int result[replication_count] = {0};
+    int result[replication_count];
+    memset (result, 0, replication_count * sizeof(int));
     if (weights[host_index] == 0x00000) {
       /*domain_item.clear();
       return domain_item;*/

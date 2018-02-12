@@ -19,12 +19,6 @@ configure_file(
   ${CMAKE_BINARY_DIR}/crush/acconfig.h
 )
 
-add_custom_target(doc
-  ALL
-  COMMAND : \; \( cat doc/Doxygen \; echo 'OUTPUT_DIRECTORY = ${CMAKE_BINARY_DIR}/doc' \) | doxygen -
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
-install(FILES ${CMAKE_BINARY_DIR}/doc/man/man3/API.3 RENAME libcrush.3 DESTINATION ${CMAKE_INSTALL_PREFIX}/share/man/man3/)
-
 set(crush_srcs
   crush/helpers.c
   crush/builder.c
