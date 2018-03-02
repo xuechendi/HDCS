@@ -7,6 +7,7 @@
 #include "common/AioCompletionImp.h"
 #include "store/DataStore.h"
 #include "common/HDCS_REQUEST_CTX.h"
+#include "common/Timer.h"
 
 namespace hdcs {
 namespace store {
@@ -18,9 +19,11 @@ typedef std::map<uint64_t, std::pair<uint64_t, char*> > data_store_request_chain
   public:
     DataStoreRequest(uint8_t shared_count, uint64_t block_size,
                      AioCompletion* replica_comp,
-                     hdcs_replica_nodes_t* connection_v):
+                     hdcs_replica_nodes_t* connection_v,
+                     SafeTimer* timer, uint64_t request_timeout):
       shared_count(shared_count), data_store(nullptr), replica_comp(replica_comp),
-      block_size(block_size), connection_v(connection_v){
+      block_size(block_size), connection_v(connection_v), timer(timer),
+      request_timeout(request_timeout){
         //create comp for prepare_data_store_req.
         data_store_comp = std::make_shared<AioCompletionImp>([&](ssize_t r){
           submit_request();
@@ -80,12 +83,10 @@ typedef std::map<uint64_t, std::pair<uint64_t, char*> > data_store_request_chain
       uint64_t offset;
       uint64_t length;
       char* data_ptr;
-      //char print_buffer[256];
-      //int print_buffer_size = 0;
 
-      //sprintf(print_buffer, "New batch\n");
       for (data_store_request_chain_t::iterator it = data_store_req_chain.begin(); 
           it != data_store_req_chain.end(); it++) {
+        //TODO:  should reset aio_completion size if chain size greater than 1.
 
         //todo: different at cache mode.
         offset = it->first * block_size;
@@ -99,17 +100,19 @@ typedef std::map<uint64_t, std::pair<uint64_t, char*> > data_store_request_chain
                                              replica_comp, offset, length, data_ptr);
           ((hdcs_ioctx_t*)io_ctx)->conn->aio_communicate(std::move(std::string(msg_content.data(), msg_content.size())));
         }
+        if (replica_comp) {
+          // add a timeout to timer
+          timer->add_event_after(request_timeout, replica_comp);
+        }
 
         //submit request to local
-        //print_buffer_size = strlen(print_buffer);
-        //sprintf(&print_buffer[print_buffer_size], "  DataStore %p write %p to %lu(%lu)\n", data_store, data_ptr, offset, length);
         ret = data_store->write(data_ptr, offset, length);
         if (ret < 0) {
           log_err("data_store->write failed\n");
           return ret;
         }
       }
-      //printf("%s", print_buffer);
+
       return ret;
     }
 
@@ -125,7 +128,8 @@ typedef std::map<uint64_t, std::pair<uint64_t, char*> > data_store_request_chain
     uint64_t block_size;
     hdcs_replica_nodes_t* connection_v;
     AioCompletion* replica_comp;
-
+    SafeTimer* timer;
+    uint64_t request_timeout;
   };
 }// store
 }// hdcs

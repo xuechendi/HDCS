@@ -11,9 +11,15 @@
 
 class Connection;
 
+typedef uint8_t HDCS_CORE_STAT_TYPE;
+#define HDCS_CORE_STAT_OK        0XD0
+#define HDCS_CORE_STAT_ERROR     0XD1
+#define HDCS_CORE_STAT_PREPARE   0XD2
+
 struct hdcs_ioctx_t{
   hdcs::networking::Connection* conn;
   void* hdcs_inst; 
+  HDCS_CORE_STAT_TYPE stat;
   std::atomic<void*> comp;
 };
 

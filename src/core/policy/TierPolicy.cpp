@@ -14,10 +14,11 @@ TierPolicy::TierPolicy(uint64_t total_size, uint32_t block_size,
                        store::DataStore *data_store,
                        store::DataStore *back_store,
                        WorkQueue<std::shared_ptr<Request>> *request_queue,
+                       HDCS_CORE_STAT_TYPE* core_stat_ptr,
                        int process_threads_num): 
                       total_size(total_size), block_size(block_size),
                       data_store(data_store), back_store(back_store),
-                      request_queue(request_queue),
+                      request_queue(request_queue), core_stat_ptr(core_stat_ptr),
                       process_threads_num(process_threads_num) {
   //promote all blocks when doing initialization
   blocks_count = total_size / block_size; 

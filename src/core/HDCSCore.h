@@ -10,6 +10,7 @@
 #include "common/HDCS_REQUEST_HANDLER.h"
 #include "core/BlockRequest.h"
 #include "core/BlockGuard.h"
+#include "store/DataStoreGuard.h"
 #include "core/policy/Policy.h"
 #include <mutex>
 #include <map>
@@ -42,6 +43,14 @@ namespace core {
     void queue_io (std::shared_ptr<Request> req);
     void aio_read (char* data, uint64_t offset, uint64_t length, void* c);
     void aio_write (char* data, uint64_t offset, uint64_t length, void* c);
+
+    // for failover
+    bool check_data_consistency();
+    uint8_t get_peered_core_num();
+    uint8_t get_min_replica_size();
+    uint8_t get_replica_size();
+    void set_core_stat(HDCS_CORE_STAT_TYPE core_stat);
+    HDCS_CORE_STAT_TYPE get_core_stat();
   private:
     TWorkQueue *hdcs_op_threads;
     std::thread *main_thread;
@@ -59,6 +68,11 @@ namespace core {
     hdcs_repl_options replication_options;
     std::string name;
     std::string host;
+    HDCSDataStoreGuard data_store_guard;
+    uint8_t replica_size;
+    uint8_t min_replica_size;
+    HDCS_CORE_STAT_TYPE core_stat;
+    std::mutex core_stat_mutex;
 
     void process();
     void process_request(std::shared_ptr<Request> req);

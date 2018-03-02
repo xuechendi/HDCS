@@ -7,6 +7,7 @@
 #include "Network/hdcs_networking.h"
 #include "common/HDCS_REQUEST_CTX.h"
 #include "ha/HAClient.h"
+//#include "core/HDCSCoreStatGuard.h"
 
 namespace hdcs {
 
@@ -17,7 +18,6 @@ namespace hdcs {
     void handle_request(void* session_id, std::string msg_content);
   private:
     Config config;
-    //std::map<std::string, std::string> conf_of_HDCSController;
     ConfigInfo conf_of_HDCSController;
     std::string name;
     std::string config_file_path;
@@ -26,6 +26,7 @@ namespace hdcs {
     std::mutex hdcs_core_map_mutex;
     ha::HAClient *ha_client;
     std::string role;
+    //HDCSCoreStatGuard core_stat_guard;
   };
 }// hdcs
 

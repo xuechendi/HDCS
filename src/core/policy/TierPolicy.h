@@ -23,6 +23,7 @@ public:
               store::DataStore *data_store,
               store::DataStore *back_store,
               WorkQueue<std::shared_ptr<Request>> *request_queue,
+              HDCS_CORE_STAT_TYPE* core_stat_ptr,
               int process_threads_num);
   ~TierPolicy();
   BlockOp* map(BlockRequest &&block_request, BlockOp** block_op_end);
@@ -35,6 +36,7 @@ private:
   uint64_t total_size;
   uint32_t block_size;
   int process_threads_num;
+  std::shared_ptr<HDCS_CORE_STAT_TYPE> core_stat_ptr;
 
   store::DataStore *data_store;
   store::DataStore *back_store;

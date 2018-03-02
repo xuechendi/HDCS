@@ -19,7 +19,8 @@ HDCSCore::HDCSCore(std::string host, std::string name,
   hdcs_repl_options &&replication_options_param):
   host(host),
   name(name),
-  replication_options(replication_options_param) {
+  replication_options(replication_options_param),
+  core_stat(HDCS_CORE_STAT_ERROR) {
   config = new Config(host + "_" + name, cfg_file);
 
   std::string log_path = config->get_config("HDCSCore")["log_to_file"];
@@ -33,10 +34,14 @@ HDCSCore::HDCSCore(std::string host, std::string name,
   }
 
   int hdcs_thread_max = stoi(config->get_config("HDCSCore")["op_threads_num"]);
+  uint64_t request_timeout = stoull(config->get_config("HDCSCore")["request_timeout_nanoseconds"]);
   hdcs_op_threads = new TWorkQueue(hdcs_thread_max);
   uint64_t total_size = stoull(config->get_config("HDCSCore")["total_size"]);
   uint64_t block_size = stoull(config->get_config("HDCSCore")["cache_min_alloc_size"]);
   bool cache_policy_mode = config->get_config("HDCSCore")["policy_mode"].compare(std::string("cache")) == 0 ? true : false;
+
+  replica_size = stoi(config->get_config("HDCSCore")["replica_size"]);
+  min_replica_size = stoi(config->get_config("HDCSCore")["min_replica_size"]);
 
   std::string engine_type = config->get_config("HDCSCore")["entine_type"];
   std::string path = config->get_config("HDCSCore")["cache_dir_run"];
@@ -56,6 +61,7 @@ HDCSCore::HDCSCore(std::string host, std::string name,
 
   block_guard = new BlockGuard(total_size, block_size,
                                replication_core_map.size(),
+                               request_timeout,
                                std::move(replication_core_map));
   BlockMap* block_ptr_map = block_guard->get_block_map();
   store::DataStore* datastore = nullptr;
@@ -74,7 +80,7 @@ HDCSCore::HDCSCore(std::string host, std::string name,
     policy = new TierPolicy(total_size, block_size, block_ptr_map,
                     datastore->create_engine(engine_type, path, total_size, total_size, block_size),
                     new store::RBDImageStore(pool_name, volume_name, block_size),
-                    &request_queue, hdcs_thread_max);
+                    &request_queue, &core_stat, hdcs_thread_max);
   }
 
   go = true;
@@ -203,6 +209,38 @@ void HDCSCore::connect_to_replica (std::vector<std::string> replication_nodes) {
     hdcs::HDCS_REQUEST_CTX msg_content(HDCS_CONNECT, nullptr, nullptr, 0, name.length(), const_cast<char*>(name.c_str()));
     io_ctx->conn->communicate(std::move(std::string(msg_content.data(), msg_content.size())));
   }
+}
+
+bool HDCSCore::check_data_consistency () {
+  return data_store_guard.check_data_consistency();
+}
+
+uint8_t HDCSCore::get_peered_core_num () {
+  uint8_t healthy_peer_num = 0;
+  for (auto& it : replication_core_map) {
+    if (((hdcs_ioctx_t*)it.second)->stat == HDCS_CORE_STAT_OK) {
+      healthy_peer_num ++;
+    }
+  }
+  return healthy_peer_num;
+}
+
+uint8_t HDCSCore::get_min_replica_size () {
+  return min_replica_size;
+}
+
+uint8_t HDCSCore::get_replica_size () {
+  return replica_size;
+}
+
+void HDCSCore::set_core_stat (HDCS_CORE_STAT_TYPE core_stat_arg) {
+  std::lock_guard<std::mutex> lock(core_stat_mutex);
+  core_stat = core_stat_arg;
+}
+
+HDCS_CORE_STAT_TYPE HDCSCore::get_core_stat () {
+  std::lock_guard<std::mutex> lock(core_stat_mutex);
+  return core_stat;
 }
 
 }// core

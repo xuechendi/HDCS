@@ -149,9 +149,12 @@ public:
         {"cache_total_size","10737418240"},
         {"cache_ratio_health","0.85"},
         {"cache_dirty_timeout_nanoseconds", "10000000000"},
+        {"request_timeout_nanoseconds", "10000000000"},
         {"cache_min_alloc_size","4096"},
         {"op_threads_num","64"},
         {"engine_type","simple"},
+        {"replica_size","0"},
+        {"min_replica_size","0"},
       };
       //scan global section, overwrite default config
       std::string s;
