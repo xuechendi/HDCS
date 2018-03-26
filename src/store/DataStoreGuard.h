@@ -38,6 +38,7 @@ public:
     std::string path = dir_path + ".commitlog"; 
     size = sizeof(DataStoreCommitLogSuperBlock)  + log_size * sizeof(DataStoreCommitLogItem);
     int mode = O_CREAT | O_NOATIME | O_RDWR | O_SYNC, permission = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
+    //int mode = O_CREAT | O_NOATIME | O_RDWR, permission = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
     log_fd = ::open( path.c_str(), mode, permission );
     if (log_fd < 0) {
       printf( "[ERROR] DataStoreCommitLog::open_and_init, unable to open %s, error: %s \n", path, std::strerror(log_fd) );
@@ -54,7 +55,7 @@ public:
         return;
       }
     }
-    //init_superblock();
+    init_superblock();
     std::cout << "last commit pos:" << super_block.last_commit_pos << std::endl;
   }
 
@@ -76,6 +77,7 @@ public:
     }
     // successfully read data
     // TODO: replay data from last commit
+    std::cout << "last_commit_pos: " << super_block.last_commit_pos << std::endl;
     uint32_t last_commit_pos = find_last_pos(super_block.last_commit_pos);
     super_block.last_commit_pos = last_commit_pos;
 
@@ -93,18 +95,19 @@ public:
 
     uint32_t max_tid = 0;
     target_pos = start_pos;
-    uint32_t remain_length = (size - target_pos) / sizeof(DataStoreCommitLogItem);
-    uint32_t unsearched_length = size;
+    uint32_t remain_length = log_size - target_pos;
+    uint32_t unsearched_length = log_size;
     while (unsearched_length) {
-      read_length = remain_length > read_length ? read_length : remain_length;
+      read_length = remain_length > HDCS_COMMIT_LOG_PRELOAD_LENGTH ? HDCS_COMMIT_LOG_PRELOAD_LENGTH : remain_length;
+      std::cout << "read_length: " << read_length << std::endl;
       if (read_length == 0) {
-        target_pos = sizeof(DataStoreCommitLogSuperBlock);
-        remain_length = (size - target_pos) / sizeof(DataStoreCommitLogItem);
+        target_pos = 1;
+        remain_length = log_size - target_pos;
         continue;
       }
-      int ret = ::pread(log_fd, (char*)(&log_item_array),
+      int ret = ::pread(log_fd, (char*)(log_item_array),
           sizeof(DataStoreCommitLogItem) * read_length,
-          target_pos); 
+          sizeof(DataStoreCommitLogSuperBlock) + sizeof(DataStoreCommitLogItem) * target_pos); 
       if (ret < 0) {
         delete log_item_array;
         return ret;
@@ -114,6 +117,7 @@ public:
 
       // check data
       for (uint32_t i = 0; i < read_length; i++) {
+        std::cout << "tid: " << log_item_array[i].tid << std::endl;
         if (log_item_array[i].tid > max_tid) {
           max_tid = log_item_array[i].tid;
         } else if (log_item_array[i].tid == 1){
@@ -123,7 +127,7 @@ public:
           delete log_item_array;
           return target_pos;
         }
-        target_pos += sizeof(DataStoreCommitLogItem);
+        target_pos += 1;
       }
     }
     delete log_item_array;
