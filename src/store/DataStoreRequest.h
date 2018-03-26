@@ -11,8 +11,17 @@
 
 namespace hdcs {
 namespace store {
+struct DataStoreRequest_t {
+  uint64_t offset;
+  uint64_t size;
+  char* data;
+  uint32_t tid;
+  uint32_t commit_pos;
+  DataStoreRequest_t (uint64_t offset, uint64_t size, char* data, uint32_t tid, uint32_t commit_pos):
+    offset(offset), size(size), data(data), tid(tid), commit_pos(commit_pos) {}
+};
 typedef std::map<std::string, void*> hdcs_replica_nodes_t;
-typedef std::map<uint64_t, std::pair<uint64_t, char*> > data_store_request_chain_t; 
+typedef std::map<uint64_t, DataStoreRequest_t*> data_store_request_chain_t; 
 //typedef void DataStore;
 
   class DataStoreRequest {
@@ -31,9 +40,18 @@ typedef std::map<uint64_t, std::pair<uint64_t, char*> > data_store_request_chain
     }
 
     ~DataStoreRequest() {
+      for (data_store_request_chain_t::iterator it = data_store_req_chain.begin(); 
+          it != data_store_req_chain.end(); it++) {
+        delete it->second;
+        data_store_req_chain.erase(it);
+      }
     }
 
-    int prepare_request(DataStore* data_store_tmp, uint64_t block_id, char* data) {
+    int prepare_request(DataStore* data_store_tmp,
+        uint64_t block_id,
+        char* data,
+        uint32_t tid,
+        uint32_t commit_pos) {
       data_store_mutex.lock();
       data_store = data_store_tmp;
 
@@ -47,21 +65,22 @@ typedef std::map<uint64_t, std::pair<uint64_t, char*> > data_store_request_chain
         cur_it = it++;
 
         // merge to the block before to this one
-          if (cur_it->second.second + cur_it->second.first == data) {
-            cur_it->second.first += block_size_tmp;
+          if (cur_it->second->data + cur_it->second->size == data) {
+            cur_it->second->size += block_size_tmp;
             block_id = cur_it->first;
-            block_size_tmp = cur_it->second.first;
-            data = cur_it->second.second;
+            block_size_tmp = cur_it->second->size;
+            data = cur_it->second->data;
             inserted = true;
           }
 
         // merge to the block next to this one
-          if (data + block_size_tmp == cur_it->second.second) {
-            uint64_t tmp_size = block_size_tmp + cur_it->second.first;
+          if (data + block_size_tmp == cur_it->second->data) {
+            uint64_t tmp_size = block_size_tmp + cur_it->second->size;
             //insert new one
-            data_store_req_chain[block_id] = std::make_pair(tmp_size, data);
+            data_store_req_chain[block_id] = new DataStoreRequest_t(block_id, tmp_size, data, tid, commit_pos);
  
             //remove original one
+            delete cur_it->second;
             data_store_req_chain.erase(cur_it);
             block_size_tmp = tmp_size;
             inserted = true;
@@ -69,7 +88,7 @@ typedef std::map<uint64_t, std::pair<uint64_t, char*> > data_store_request_chain
 
       }// end for
       if (!inserted) {
-        data_store_req_chain[block_id] = std::make_pair(block_size_tmp, data);
+        data_store_req_chain[block_id] = new DataStoreRequest_t(block_id, block_size_tmp, data, tid, commit_pos);
       }
 
       data_store_mutex.unlock();
@@ -83,6 +102,8 @@ typedef std::map<uint64_t, std::pair<uint64_t, char*> > data_store_request_chain
       uint64_t offset;
       uint64_t length;
       char* data_ptr;
+      uint32_t tid;
+      uint32_t commit_pos;
 
       for (data_store_request_chain_t::iterator it = data_store_req_chain.begin(); 
           it != data_store_req_chain.end(); it++) {
@@ -90,12 +111,15 @@ typedef std::map<uint64_t, std::pair<uint64_t, char*> > data_store_request_chain
 
         //todo: different at cache mode.
         offset = it->first * block_size;
-        length = it->second.first;
-        data_ptr = it->second.second;
+        length = it->second->size;
+        data_ptr = it->second->data;
+        tid = it->second->tid;
+        commit_pos = it->second->commit_pos;
 
         //submit request to replica
         for (const auto& replica_node : *connection_v) {
           io_ctx = replica_node.second;
+          //TODO: add tid into replica msg
           hdcs::HDCS_REQUEST_CTX msg_content(HDCS_WRITE, ((hdcs_ioctx_t*)io_ctx)->hdcs_inst,
                                              replica_comp, offset, length, data_ptr);
           ((hdcs_ioctx_t*)io_ctx)->conn->aio_communicate(std::move(std::string(msg_content.data(), msg_content.size())));
@@ -111,6 +135,7 @@ typedef std::map<uint64_t, std::pair<uint64_t, char*> > data_store_request_chain
           log_err("data_store->write failed\n");
           return ret;
         }
+        ret = data_store->guard->commit(tid, commit_pos, offset, length);
       }
 
       return ret;

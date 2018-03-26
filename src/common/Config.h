@@ -155,6 +155,7 @@ public:
         {"engine_type","simple"},
         {"replica_size","0"},
         {"min_replica_size","0"},
+        {"commit_log_max_size", "499322"}
       };
       //scan global section, overwrite default config
       std::string s;

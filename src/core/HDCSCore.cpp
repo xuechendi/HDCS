@@ -59,26 +59,43 @@ HDCSCore::HDCSCore(std::string host, std::string name,
     connect_to_replica(replication_options.replication_nodes);
   }
 
+  std::cout << "create BlockGuard" << std::endl;
   block_guard = new BlockGuard(total_size, block_size,
                                replication_core_map.size(),
                                request_timeout,
                                std::move(replication_core_map));
+  std::cout << "created BlockGuard" << std::endl;
   BlockMap* block_ptr_map = block_guard->get_block_map();
-  store::DataStore* datastore = nullptr;
-
+  uint64_t log_size = stoull(config->get_config("HDCSCore")["commit_log_max_size"]);
   if (cache_policy_mode) {
+    std::cout << "create DataStore" << std::endl;
     uint64_t cache_size = stoull(config->get_config("HDCSCore")["cache_total_size"]);
     float cache_ratio_health = stof(config->get_config("HDCSCore")["cache_ratio_health"]);
     uint64_t timeout_nanosecond = stoull(config->get_config("HDCSCore")["cache_dirty_timeout_nanoseconds"]);
     CACHE_MODE_TYPE cache_mode = config->get_config("HDCSCore")["cache_mode"].compare(std::string("readonly")) == 0 ? CACHE_MODE_READ_ONLY : CACHE_MODE_WRITE_BACK;
+    if (engine_type == "kv") {
+      datastore = new store::KVStore(path, total_size, cache_size, block_size, log_size, replication_options.role);
+    } else {
+      datastore = new store::SimpleBlockStore(path, total_size, cache_size, block_size, log_size, replication_options.role);
+    }
+
+    std::cout << "create Policy" << std::endl;
     policy = new CachePolicy(total_size, cache_size, block_size, block_ptr_map,
-                      datastore->create_engine(engine_type, path, total_size, cache_size, block_size),
+                      datastore,
                       new store::RBDImageStore(pool_name, volume_name, block_size),
                       cache_ratio_health, &request_queue,
                       timeout_nanosecond, cache_mode, hdcs_thread_max);
   } else {
+    std::cout << "create DataStore" << std::endl;
+    if (engine_type == "kv") {
+      datastore = new store::KVStore(path, total_size, total_size, block_size, log_size, replication_options.role);
+    } else {
+      datastore = new store::SimpleBlockStore(path, total_size, total_size, block_size, log_size, replication_options.role);
+    }
+
+    std::cout << "create Policy" << std::endl;
     policy = new TierPolicy(total_size, block_size, block_ptr_map,
-                    datastore->create_engine(engine_type, path, total_size, total_size, block_size),
+                    datastore,
                     new store::RBDImageStore(pool_name, volume_name, block_size),
                     &request_queue, &core_stat, hdcs_thread_max);
   }
@@ -96,6 +113,7 @@ HDCSCore::~HDCSCore() {
     ((hdcs_ioctx_t*)hdcs_replica.second)->conn->close();
     free((hdcs_ioctx_t*)hdcs_replica.second);
   }
+  delete datastore;
   delete policy;
   delete block_guard;
   delete main_thread;
@@ -212,7 +230,8 @@ void HDCSCore::connect_to_replica (std::vector<std::string> replication_nodes) {
 }
 
 bool HDCSCore::check_data_consistency () {
-  return data_store_guard.check_data_consistency();
+  return core_stat == HDCS_CORE_STAT_OK ? true : false;
+  //return data_store_guard.check_data_consistency();
 }
 
 uint8_t HDCSCore::get_peered_core_num () {

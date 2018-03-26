@@ -10,7 +10,6 @@
 #include "common/HDCS_REQUEST_HANDLER.h"
 #include "core/BlockRequest.h"
 #include "core/BlockGuard.h"
-#include "store/DataStoreGuard.h"
 #include "core/policy/Policy.h"
 #include <mutex>
 #include <map>
@@ -68,7 +67,7 @@ namespace core {
     hdcs_repl_options replication_options;
     std::string name;
     std::string host;
-    HDCSDataStoreGuard data_store_guard;
+    store::DataStore* datastore;
     uint8_t replica_size;
     uint8_t min_replica_size;
     HDCS_CORE_STAT_TYPE core_stat;

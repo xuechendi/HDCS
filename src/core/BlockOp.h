@@ -557,7 +557,7 @@ public:
     if (prev_block_op) {
       delete prev_block_op;
     }
-    block_request->data_store_req->prepare_request(data_store, entry_id, data);
+    block_request->data_store_req->prepare_request(data_store, entry_id, data, block_request->tid, block_request->tid);
     complete(0);
   }
 private:

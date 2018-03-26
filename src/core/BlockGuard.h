@@ -24,7 +24,8 @@ public:
          block_size(block_size),
          replica_size(replica_size),
          request_timeout(request_timeout),
-         connection_v(connection_v){
+         connection_v(connection_v),
+         tid(1) {
     block_count = total_size / block_size;
     log_err("Total blocks: %lu", block_count);
     block_map = new Block*[block_count]();
@@ -82,8 +83,14 @@ public:
       length_by_block = (block_size - offset_by_block) < left ?
                           (block_size - offset_by_block):left;
       block_request_list->emplace_back(std::move(BlockRequest(
-                                       data_ptr, offset_by_block,
-                                       length_by_block, req, block, data_store_req)));
+                                       data_ptr,
+                                       offset_by_block,
+                                       length_by_block,
+                                       req,
+                                       block,
+                                       data_store_req,
+                                       tid++)));
+      if (tid == 0) tid++;
       data_ptr += length_by_block;
       left -= length_by_block;
       offset += length_by_block;
@@ -108,6 +115,7 @@ private:
   hdcs_replica_nodes_t connection_v;
   SafeTimer timer;
   uint64_t request_timeout;
+  uint32_t tid; //Use tid to record for all requests.
 };
 
 } //namespace core
