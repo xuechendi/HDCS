@@ -94,6 +94,7 @@ public:
     uint32_t read_length = HDCS_COMMIT_LOG_PRELOAD_LENGTH;
 
     uint32_t max_tid = 0;
+    uint64_t step = 1;
     target_pos = start_pos;
     uint32_t remain_length = log_size - target_pos;
     uint32_t unsearched_length = log_size;
@@ -120,14 +121,16 @@ public:
         std::cout << "tid: " << log_item_array[i].tid << std::endl;
         if (log_item_array[i].tid > max_tid) {
           max_tid = log_item_array[i].tid;
+          step = log_item_array[i].length % 4096?log_item_array[i].length / 4096 + 1:log_item_array[i].length / 4096;
         } else if (log_item_array[i].tid == 1){
           // tid ran out, back to 1
           max_tid = log_item_array[i].tid;
+          step = log_item_array[i].length % 4096?log_item_array[i].length / 4096 + 1:log_item_array[i].length / 4096;
         } else {
           delete log_item_array;
           return target_pos;
         }
-        target_pos += 1;
+        target_pos += step;
       }
     }
     delete log_item_array;
