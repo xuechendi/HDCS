@@ -16,11 +16,12 @@ namespace hdcs {
 namespace core {
 HDCSCore::HDCSCore(std::string host, std::string name,
   std::string cfg_file,
+  HDCSCoreStatGuard* core_stat,
   hdcs_repl_options &&replication_options_param):
   host(host),
   name(name),
-  replication_options(replication_options_param),
-  core_stat(HDCS_CORE_STAT_ERROR) {
+  core_stat(core_stat),
+  replication_options(replication_options_param) {
   config = new Config(host + "_" + name, cfg_file);
 
   std::string log_path = config->get_config("HDCSCore")["log_to_file"];
@@ -97,7 +98,7 @@ HDCSCore::HDCSCore(std::string host, std::string name,
     policy = new TierPolicy(total_size, block_size, block_ptr_map,
                     datastore,
                     new store::RBDImageStore(pool_name, volume_name, block_size),
-                    &request_queue, &core_stat, hdcs_thread_max);
+                    &request_queue, hdcs_thread_max, core_stat);
   }
 
   go = true;
@@ -187,7 +188,7 @@ void HDCSCore::map_block(BlockRequest &&block_request) {
   }
   block->block_mutex.unlock();
   if (do_process) {
-    hdcs_op_threads->add_task(std::bind(&BlockOp::send, block_ops_head, nullptr));
+    hdcs_op_threads->add_task(std::bind(&BlockOp::send, block_ops_head, nullptr, 0));
     //block_ops_head->send();
   }
 }
@@ -230,8 +231,8 @@ void HDCSCore::connect_to_replica (std::vector<std::string> replication_nodes) {
 }
 
 bool HDCSCore::check_data_consistency () {
-  return core_stat == HDCS_CORE_STAT_OK ? true : false;
-  //return data_store_guard.check_data_consistency();
+  //return core_stat == HDCS_CORE_STAT_OK ? true : false;
+  return datastore->guard->check_data_consistency();
 }
 
 uint8_t HDCSCore::get_peered_core_num () {
@@ -250,16 +251,6 @@ uint8_t HDCSCore::get_min_replica_size () {
 
 uint8_t HDCSCore::get_replica_size () {
   return replica_size;
-}
-
-void HDCSCore::set_core_stat (HDCS_CORE_STAT_TYPE core_stat_arg) {
-  std::lock_guard<std::mutex> lock(core_stat_mutex);
-  core_stat = core_stat_arg;
-}
-
-HDCS_CORE_STAT_TYPE HDCSCore::get_core_stat () {
-  std::lock_guard<std::mutex> lock(core_stat_mutex);
-  return core_stat;
 }
 
 }// core

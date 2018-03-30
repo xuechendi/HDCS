@@ -72,7 +72,7 @@ public:
       ConfigInfo configValues{
         {"hdcs_HAManager_name", "HDCSManager"},
         {"ha_heartbeat_listen_port", "10000"},
-        {"hdcs_replication_count", "3"},
+        {"replica_size", "3"},
         {"status_check_timeout", "30000000000"},
         {"layback_domain_distribute_timeout", "10000000000"},
       };
