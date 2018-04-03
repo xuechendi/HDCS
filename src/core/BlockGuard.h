@@ -18,11 +18,10 @@ typedef std::map<std::string, void*> hdcs_replica_nodes_t;
 class BlockGuard {
 public:
   BlockGuard(uint64_t total_size, uint32_t block_size,
-             int replica_size, uint64_t request_timeout,
-             hdcs_replica_nodes_t&& connection_v) :
+             uint64_t request_timeout,
+             hdcs_replica_nodes_t* connection_v) :
          total_size(total_size),
          block_size(block_size),
-         replica_size(replica_size),
          request_timeout(request_timeout),
          connection_v(connection_v),
          tid(1) {
@@ -50,6 +49,7 @@ public:
     char* data_ptr = req->data;
     Block* block;
     uint64_t block_id;
+    int replica_size = connection_v->size();
 
     uint64_t tmp_length = (length + (offset % block_size));
     int shared_count = tmp_length % block_size == 0 ? 0 : 1;
@@ -72,7 +72,7 @@ public:
     req->comp = replica_write_comp;
 
     std::shared_ptr<store::DataStoreRequest> data_store_req = std::make_shared<store::DataStoreRequest>(
-        shared_count, block_size, replica_write_comp, &connection_v, &timer, request_timeout);
+        shared_count, block_size, replica_write_comp, replica_size, connection_v, &timer, request_timeout);
 
     std::lock_guard<std::mutex> lock(block_map_lock);
     while(left) {
@@ -111,8 +111,7 @@ private:
   uint64_t total_size;
   uint32_t block_size;
   uint64_t block_count;
-  int replica_size;
-  hdcs_replica_nodes_t connection_v;
+  hdcs_replica_nodes_t* connection_v;
   SafeTimer timer;
   uint64_t request_timeout;
   uint32_t tid; //Use tid to record for all requests.

@@ -14,6 +14,7 @@ namespace hdcs {
     HDCSController(std::string name, std::string config_file_path, std::string role = "hdcs_master");
     ~HDCSController();
     void handle_request(void* session_id, std::string msg_content);
+    void refresh_domain_item();
   private:
     Config config;
     ConfigInfo conf_of_HDCSController;

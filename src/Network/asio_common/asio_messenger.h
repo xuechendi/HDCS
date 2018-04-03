@@ -210,7 +210,7 @@ public:
         ret=boost::asio::write(socket_, boost::asio::buffer(std::move(msg.to_buffer())), ec);
         send_lock.unlock();
         if(ec){
-            error_handing("asio_messenger::sync_send: sending failed", ec);
+            error_handling("asio_messenger::sync_send: sending failed", ec);
         }
         if(ret != send_bytes){
             std::cout<<"asio_messenger::sync_send failed: ret != send_bytes "<<std::endl;
@@ -238,7 +238,7 @@ public:
                     }
                     ++send_index;
                 }else{ 
-                    error_handing("asio_messenger::async_send: sending failed", ec);
+                    error_handling("asio_messenger::async_send: sending failed", ec);
                 }
                 delete send_string;
             });
@@ -252,7 +252,7 @@ public:
         receive_lock.lock();//
         ret = boost::asio::read(socket_, boost::asio::buffer(msg_header, header_len), ec); 
         if(!ec){
-            error_handing("asio_messenger::sync_receive: receving header failed", ec);
+            error_handling("asio_messenger::sync_receive: receving header failed", ec);
         }
         if(ret<0){
             std::cout<<"asio_session::sync_receive msg_header failed:  "<<ec.message()<<std::endl;
@@ -267,7 +267,7 @@ public:
         ret = boost::asio::read(socket_, boost::asio::buffer(receive_buffer, content_size), ec); 
         receive_lock.unlock();// 
         if(!ec){
-            error_handing("asio_messenger::sync_receive: receving content failed", ec);
+            error_handling("asio_messenger::sync_receive: receving content failed", ec);
         }
         ++receive_index;
         if(ret<0){
@@ -315,7 +315,7 @@ public:
                     }
                     ++send_index;
                 }else{
-                    error_handing("asio_messenger::aio_communicate: sending failed", ec);
+                    error_handling("asio_messenger::aio_communicate: sending failed", ec);
                 }
             });
     }
@@ -361,12 +361,12 @@ public:
                                 }
 				//thread_worker.post(boost::bind(c_process_msg, callback_arg, std::move(std::string(data_buffer,content_size))));
                             }else{   
-                                error_handing("asio_messenger::aio_receive: receiving content failed", err);
+                                error_handling("asio_messenger::aio_receive: receiving content failed", err);
                             }
  			    delete[] data_buffer;
                         });
                }else{ 
-                   error_handing("asio_messenger::aio_receive: receiving header failed", err);
+                   error_handling("asio_messenger::aio_receive: receiving header failed", err);
               }
         });
     }
@@ -400,12 +400,12 @@ public:
 			        aio_receive(arg);
 				//thread_worker.post(boost::bind(s_process_msg, arg, std::move(std::string(data_buffer,content_size))));
                             }else{ 
-                                error_handing("asio_messenger::aio_receive: receiving content failed", err);
+                                error_handling("asio_messenger::aio_receive: receiving content failed", err);
                             }
  			    delete[] data_buffer;
                         });
                }else{ 
-                   error_handing("asio_messenger::aio_receive: receiving header failed", err);
+                   error_handling("asio_messenger::aio_receive: receiving header failed", err);
                }
         });
     }
@@ -414,7 +414,7 @@ private:
 
    // will unitfy to encode error, then using switch.
    // TODO
-   void error_handing(const std::string fail_reason, const boost::system::error_code& err){
+   void error_handling(const std::string fail_reason, const boost::system::error_code& err){
        if(err == boost::asio::error::eof){
           close();
           return;

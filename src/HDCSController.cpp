@@ -30,8 +30,11 @@ HDCSController::HDCSController(
   }
 
   //setup HAClient
+  AioCompletion* domain_refresh_handler = new AioCompletionImp([this](int r){
+    refresh_domain_item();
+  }, -1);
   hdcs::ha::HAConfig ha_config(config.get_config("HDCSManager"));
-  ha_client = new ha::HAClient(name, std::move(ha_config));
+  ha_client = new ha::HAClient(name, std::move(ha_config), domain_refresh_handler);
   ha_client->add_ha_server(config.get_config("HDCSManager")["hdcs_HAManager_name"]);
 
   //TODO(): seperate public/cluster network
@@ -80,7 +83,6 @@ void HDCSController::handle_request(void* session_id, std::string msg_content) {
         }
         hdcs_repl_options replication_options(role, std::move(replication_nodes));
 
-        //core::HDCSCore* core_inst = new core::HDCSCore(name, volume_name, config_file_path, std::move(replication_options));
         // insert new core_stat_machine. This only happens to a clean volume.
         core::HDCSCoreStatGuard *core_statmachine_inst = new core::HDCSCoreStatGuard(
           name, volume_name, config_file_path, std::move(replication_options)
@@ -178,6 +180,33 @@ void HDCSController::handle_request(void* session_id, std::string msg_content) {
       break;
     default:
       break;
+  }
+}
+void HDCSController::refresh_domain_item() {
+  std::vector<std::string> replication_nodes;
+  std::lock_guard<std::mutex> lock(hdcs_core_map_mutex);
+  //get replication nodes from ha_client
+  bool first = true;
+  for (auto &host_name : ha_client->get_domain_item()) {
+    if (first) {
+      first = false;
+      continue;
+    }
+    auto host_addr_it = conf_of_HDCSController.find(host_name);
+    if ( host_addr_it != conf_of_HDCSController.end() ) {
+      replication_nodes.push_back(host_addr_it->second);
+    }
+  }
+
+  // update new replication nodes to each core.
+  core::HDCSCore* core_inst;
+  for (auto core_inst_guard_it : hdcs_core_map) {
+    core_inst = core_inst_guard_it.second->get_hdcs_core();
+    int updated = core_inst->update_replication_nodes(replication_nodes);
+    std::cout << "New connection updated" << std::endl;
+    if (updated) {
+      core_inst_guard_it.second->set_core_stat_to_error();
+    }
   }
 }
 }// hdcs

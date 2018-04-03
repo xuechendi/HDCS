@@ -28,10 +28,11 @@ typedef std::map<uint64_t, DataStoreRequest_t*> data_store_request_chain_t;
   public:
     DataStoreRequest(uint8_t shared_count, uint64_t block_size,
                      AioCompletion* replica_comp,
+                     int replica_size,
                      hdcs_replica_nodes_t* connection_v,
                      SafeTimer* timer, uint64_t request_timeout):
       shared_count(shared_count), data_store(nullptr), replica_comp(replica_comp),
-      block_size(block_size), connection_v(connection_v), timer(timer),
+      block_size(block_size), replica_size(replica_size), connection_v(connection_v), timer(timer),
       request_timeout(request_timeout){
         //create comp for prepare_data_store_req.
         data_store_comp = std::make_shared<AioCompletionImp>([&](ssize_t r){
@@ -117,6 +118,7 @@ typedef std::map<uint64_t, DataStoreRequest_t*> data_store_request_chain_t;
         commit_pos = it->second->commit_pos;
 
         //submit request to replica
+        if (replica_size > 0)
         for (const auto& replica_node : *connection_v) {
           io_ctx = replica_node.second;
           //TODO: add tid into replica msg
@@ -151,6 +153,7 @@ typedef std::map<uint64_t, DataStoreRequest_t*> data_store_request_chain_t;
     DataStore* data_store;
     IO_TYPE io_type;
     uint64_t block_size;
+    int replica_size;
     hdcs_replica_nodes_t* connection_v;
     AioCompletion* replica_comp;
     SafeTimer* timer;

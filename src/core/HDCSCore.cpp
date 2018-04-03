@@ -41,8 +41,13 @@ HDCSCore::HDCSCore(std::string host, std::string name,
   uint64_t block_size = stoull(config->get_config("HDCSCore")["cache_min_alloc_size"]);
   bool cache_policy_mode = config->get_config("HDCSCore")["policy_mode"].compare(std::string("cache")) == 0 ? true : false;
 
-  replica_size = stoi(config->get_config("HDCSCore")["replica_size"]);
-  min_replica_size = stoi(config->get_config("HDCSCore")["min_replica_size"]);
+  if ( replication_options.role == "slave" ) {
+    replica_size = 0;
+    min_replica_size = 0;
+  } else {
+    replica_size = stoi(config->get_config("HDCSCore")["replica_size"]);
+    min_replica_size = stoi(config->get_config("HDCSCore")["min_replica_size"]);
+  }
 
   std::string engine_type = config->get_config("HDCSCore")["entine_type"];
   std::string path = config->get_config("HDCSCore")["cache_dir_run"];
@@ -57,14 +62,13 @@ HDCSCore::HDCSCore(std::string host, std::string name,
   }
   std::cout << std::endl; 
   if ("master" == replication_options.role && replication_options.replication_nodes.size() != 0) {
-    connect_to_replica(replication_options.replication_nodes);
+    update_replication_nodes(replication_options.replication_nodes, true);
   }
 
   std::cout << "create BlockGuard" << std::endl;
   block_guard = new BlockGuard(total_size, block_size,
-                               replication_core_map.size(),
                                request_timeout,
-                               std::move(replication_core_map));
+                               &replication_core_map);
   std::cout << "created BlockGuard" << std::endl;
   BlockMap* block_ptr_map = block_guard->get_block_map();
   uint64_t log_size = stoull(config->get_config("HDCSCore")["commit_log_max_size"]);
@@ -206,28 +210,73 @@ void HDCSCore::aio_write (char* data, uint64_t offset, uint64_t length,  void* a
   //process_request(req);
 }
 
-void HDCSCore::connect_to_replica (std::vector<std::string> replication_nodes) {
+int HDCSCore::update_replication_nodes (std::vector<std::string> replication_nodes, bool init) {
+  int ret = 0;
+  std::lock_guard<std::mutex> lock(replication_core_map_mutex);
+  // compare with current config
+  std::vector<std::string> remove_nodes;
+  std::vector<std::string> new_nodes;
+  for (auto &node : replication_nodes) {
+    new_nodes.push_back(node);
+  }
+  if (init == false) {
+    for (auto &node : replication_options.replication_nodes) {
+      auto it = std::find(replication_nodes.begin(), replication_nodes.end(), node);
+      if (it == replication_nodes.end()) {
+        remove_nodes.push_back(node);
+      } else {
+        auto remove_it = std::find(new_nodes.begin(), new_nodes.end(), node);
+        if (remove_it != new_nodes.end()) new_nodes.erase(remove_it);
+      }
+    }
+    if (new_nodes.size() != 0 || remove_nodes.size() != 0) {
+      replication_options.replication_nodes.swap(replication_nodes);
+      if (remove_nodes.size() != 0) ret = 1;
+    }
+  }
+
+  // close remove nodes
+  for (auto &node : remove_nodes) {
+    disconnect_node(node);
+  }
+
+  // connect new nodes
+  for (auto &node : new_nodes) {
+    connect_node(node);
+  }
+  return ret;
+}
+
+void HDCSCore::disconnect_node (std::string node) {
+  std::cout << "disconnect node: " << node << std::endl;
+  auto it = replication_core_map.find(node);
+  if (it != replication_core_map.end()) {
+    hdcs_ioctx_t* io_ctx = (hdcs_ioctx_t*)it->second;
+    io_ctx->conn->close();
+    free(io_ctx);
+    replication_core_map.erase(it);
+  }
+}
+
+void HDCSCore::connect_node (std::string addr_port_str) {
+  std::cout << "connect node: " << addr_port_str << std::endl;
   std::string addr;
   std::string port;
-  int colon_pos, last_pos;
-  char c;
-
   hdcs_ioctx_t* io_ctx;
-  for (auto &addr_port_str : replication_nodes) {
-    std::vector<std::string> ip_port;
-    boost::split(ip_port, addr_port_str, boost::is_any_of(":"));
-    addr = ip_port[0];
-    port = ip_port[1];
+  std::vector<std::string> ip_port;
+  boost::split(ip_port, addr_port_str, boost::is_any_of(":"));
+  addr = ip_port[0];
+  port = ip_port[1];
 
-    io_ctx = (hdcs_ioctx_t*)malloc(sizeof(hdcs_ioctx_t));
-    replication_core_map[addr_port_str] = (void*)io_ctx;
-    io_ctx->conn = new hdcs::networking::Connection([](void* p, std::string s){request_handler(p, s);}, 16, 5);
-    io_ctx->conn->connect(addr, port);
-    io_ctx->conn->set_session_arg((void*)io_ctx);
+  io_ctx = (hdcs_ioctx_t*)malloc(sizeof(hdcs_ioctx_t));
+  io_ctx->conn = new hdcs::networking::Connection([](void* p, std::string s){request_handler(p, s);}, 16, 5);
+  io_ctx->conn->connect(addr, port);
+  io_ctx->conn->set_session_arg((void*)io_ctx);
 
-    hdcs::HDCS_REQUEST_CTX msg_content(HDCS_CONNECT, nullptr, nullptr, 0, name.length(), const_cast<char*>(name.c_str()));
-    io_ctx->conn->communicate(std::move(std::string(msg_content.data(), msg_content.size())));
-  }
+  hdcs::HDCS_REQUEST_CTX msg_content(HDCS_CONNECT, nullptr, nullptr, 0, name.length(), const_cast<char*>(name.c_str()));
+  io_ctx->conn->communicate(std::move(std::string(msg_content.data(), msg_content.size())));
+  io_ctx->stat = HDCS_CORE_STAT_OK;
+  replication_core_map[addr_port_str] = (void*)io_ctx;
 }
 
 bool HDCSCore::check_data_consistency () {
@@ -237,7 +286,8 @@ bool HDCSCore::check_data_consistency () {
 
 uint8_t HDCSCore::get_peered_core_num () {
   uint8_t healthy_peer_num = 0;
-  for (auto& it : replication_core_map) {
+  for (auto it : replication_core_map) {
+    std::cout << "get peer status: " << it.first << std::endl;
     if (((hdcs_ioctx_t*)it.second)->stat == HDCS_CORE_STAT_OK) {
       healthy_peer_num ++;
     }

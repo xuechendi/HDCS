@@ -13,10 +13,14 @@ namespace ha {
 
 class HAClient : public HACore {
 public:
-  HAClient (std::string name, HAConfig&& ha_config):
+  HAClient (std::string name, HAConfig&& ha_config, AioCompletion* domain_update_handler = nullptr):
     HACore (name, ha_config),
     core_stat_controller(name),
+    domain_update_handler(domain_update_handler),
     hb_service(std::move(HeartBeatOpts(1000000000, 1000000000))) {
+  }
+  ~HAClient () {
+    delete domain_update_handler;
   }
 
   void add_ha_server (std::string node_name) {
@@ -82,6 +86,9 @@ public:
   void handle_domain_map_request (void* session_arg, std::string msg_content) {
     HDCS_DOMAIN_ITEM_MSG domain_item_msg(msg_content);
     domain_item = domain_item_msg.get_domain_item();
+    if (domain_update_handler != nullptr) {
+      domain_update_handler->complete(0);
+    }
   }
 
   void handle_ha_conn_request (void* session_arg, std::string msg_content) {
@@ -110,6 +117,7 @@ private:
   name_to_conn_map_t conn_map;
   HDCSCoreStatController core_stat_controller;
   HDCS_DOMAIN_ITEM_TYPE domain_item;
+  AioCompletion* domain_update_handler;
 };
 
 }// ha

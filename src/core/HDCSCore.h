@@ -45,6 +45,7 @@ class HDCSCoreStatGuard;
     void queue_io (std::shared_ptr<Request> req);
     void aio_read (char* data, uint64_t offset, uint64_t length, void* c);
     void aio_write (char* data, uint64_t offset, uint64_t length, void* c);
+    int update_replication_nodes(std::vector<std::string> replication_nodes, bool init = false);
 
     // for failover
     bool check_data_consistency();
@@ -76,9 +77,9 @@ class HDCSCoreStatGuard;
     void process();
     void process_request(std::shared_ptr<Request> req);
     void map_block(BlockRequest &&block_request);
-    void connect_to_replica(std::vector<std::string> replication_nodes);
     void replica_send_out(AioCompletion* comp, uint64_t offset, uint64_t length, char* data);
-
+    void connect_node(std::string node);
+    void disconnect_node(std::string node);
   };
 }// core
 }// hdcs

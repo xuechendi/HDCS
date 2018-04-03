@@ -124,8 +124,13 @@ public:
       cur_stat_code = stat_machine.get_stat_code();
       stat_machine.process_event(EvStatNext());
     } while(stat_machine.get_stat_code() != cur_stat_code);
-    std::cout << "current hdcs core status: " << stat_machine.get_stat_name() << std::endl;
+    //std::cout << "current hdcs core status: " << stat_machine.get_stat_name() << std::endl;
     return cur_stat_code;
+  }
+
+  void set_core_stat_to_error () {
+    std::cout << "core stat to error" << std::endl;
+    stat_machine.process_event(EvStatFail());
   }
 };
 
@@ -215,7 +220,6 @@ public:
       std::cout << "HDCSCore is Healthy, go next" << std::endl;
       return transit< Healthy >();
     } else {
-      std::cout << "HDCSCore is expecting more peers" << std::endl;
       return discard_event();
     }
   }
@@ -246,7 +250,6 @@ public:
       std::cout << "HDCSCore has enough peers, go next" << std::endl;
       return transit< Degraded >();
     } else {
-      std::cout << "HDCSCore is expecting more peers" << std::endl;
       return discard_event();
     }
   }
@@ -277,7 +280,6 @@ public:
       std::cout << "HDCSCore is Ready, go next" << std::endl;
       return transit< Working >();
     } else {
-      std::cout << "HDCSCore is not ready" << std::endl;
       return discard_event();
     }
   }
@@ -309,7 +311,6 @@ public:
       std::cout << "HDCSCore Exists, go next" << std::endl;
       return transit< Inconsistent >();
     } else {
-      std::cout << "HDCSCore unable to find" << std::endl;
       return discard_event();
     }
   }
